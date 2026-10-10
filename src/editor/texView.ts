@@ -356,6 +356,7 @@ export class TexView extends TextFileView {
       ? NO_CONSTRUCTS
       : latexLiveLanguage({
           refs: () => render.refsOf(root),
+          visualization: () => render.visualizationOf(root),
           file: includeName(root, abs),
           image: (path) => render.imageOf(root, path),
           crop: (doc, from, to, kind) => render.cropOf(root, abs, doc, from, to, kind),

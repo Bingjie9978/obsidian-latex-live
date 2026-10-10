@@ -18,6 +18,8 @@ import { isLive, renderStats } from "./editor/shared/livePreview";
 import { YoloBridge } from "./editor/shared/yoloBridge";
 import type { MathJaxLike } from "./editor/mathjaxProject";
 import { TexRender } from "./editor/texRender";
+import { parseTemplateProfiles, type TemplateVisualizationProfile } from "./editor/templateVisualization";
+import { TemplateVisualizationModal } from "./editor/templateVisualizationModal";
 import { TheoremGraphs } from "./editor/theoremGraphs";
 import { Bibliographies } from "./editor/bibliographies";
 import { registerBibliography } from "./editor/bibliographyView";
@@ -68,9 +70,14 @@ export default class LatexLivePlugin extends Plugin {
   private restartTimer: number | undefined;
   /** Root document of the active editor; texlab reads its .aux from that output folder. */
   private activeRoot: string | null = null;
+  private templateModals = new Set<TemplateVisualizationModal>();
+  private visualizationKey = "";
+  private unloading = false;
+  private templateSaving = false;
 
   async onload(): Promise<void> {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    this.visualizationKey = this.visualizationSettingsKey();
     this.yolo = new YoloBridge(this.app, {
       name: "latex-live",
       enabled: () => this.settings.yoloTabCompletion,
@@ -125,6 +132,7 @@ export default class LatexLivePlugin extends Plugin {
       crops: this.crops,
       fragments: this.fragments,
       fragmentFallback: () => this.settings.texFragmentFallback,
+      visualization: root => this.visualizationProfile(root),
     });
     this.theoremGraphs = new TheoremGraphs({
       buffers: () => this.editorBuffers(true),
@@ -138,6 +146,8 @@ export default class LatexLivePlugin extends Plugin {
     this.registerView(VIEW_TYPE_TEX, (leaf) => new TexView(leaf, this));
     this.registerView(VIEW_TYPE_PREVIEW, (leaf) => new LatexPreviewView(leaf, this));
     this.registerExtensions(TEX_EXTENSIONS, VIEW_TYPE_TEX);
+
+    this.addCommand({ id: "template-visualization", name: "Choose / edit template visualization", callback: () => this.openTemplateVisualizations() });
 
     this.addCommand({
       id: "open-preview",
@@ -258,6 +268,9 @@ export default class LatexLivePlugin extends Plugin {
   }
 
   onunload(): void {
+    this.unloading = true;
+    for (const modal of this.templateModals) modal.close();
+    this.templateModals.clear();
     for (const s of this.sessions.values()) s.dispose();
     this.sessions.clear();
     this.yolo.destroy();
@@ -274,6 +287,11 @@ export default class LatexLivePlugin extends Plugin {
     this.binDir = undefined;
     for (const view of this.texViews()) view.applyAppearance();
     await this.saveData(this.settings);
+    const visualizationKey = this.visualizationSettingsKey();
+    if (visualizationKey !== this.visualizationKey) {
+      this.visualizationKey = visualizationKey;
+      this.texRender.refreshVisualizations();
+    }
     const key = this.texlabSettingsKey();
     if (key !== this.texlabKey) {
       // The binary or its TeX PATH changed: restart once typing in the field pauses.
@@ -286,6 +304,52 @@ export default class LatexLivePlugin extends Plugin {
 
   private texlabSettingsKey(): string {
     return `${this.settings.texlabPath}|${this.settings.texBinDir}`;
+  }
+
+  private visualizationSettingsKey(): string {
+    return JSON.stringify([this.settings.templateVisualizations, this.settings.templateAssignments]);
+  }
+
+  private visualizationProfile(root: string): TemplateVisualizationProfile | null {
+    const key = this.vaultPath(root);
+    const id = key ? this.settings.templateAssignments?.[key] : null;
+    return id && Array.isArray(this.settings.templateVisualizations)
+      ? this.settings.templateVisualizations.find(p => p?.id === id) ?? null : null;
+  }
+
+  openTemplateVisualizations(): void {
+    if (this.unloading) return;
+    const active = this.app.workspace.activeLeaf?.view;
+    const abs = active instanceof TexView && active.file?.extension === "tex" ? active.absolutePath() : null;
+    const root = abs ? this.rootFor(abs) : active instanceof LatexPreviewView ? active.root : null;
+    const key = root ? this.vaultPath(root) : null;
+    const expected = this.visualizationSettingsKey();
+    let profiles: TemplateVisualizationProfile[];
+    try { profiles = parseTemplateProfiles(this.settings.templateVisualizations); }
+    catch (error) { new Notice(`Template visualization: ${error instanceof Error ? error.message : String(error)}`); return; }
+    const modal = new TemplateVisualizationModal({
+      app: this.app, profiles, selected: key ? this.settings.templateAssignments?.[key] ?? "auto" : "auto", project: key,
+      save: async (profiles, selected) => {
+        if (this.unloading) throw new Error("LaTeX Live was unloaded. Reopen the dialog after loading the plugin.");
+        if (this.templateSaving) throw new Error("Template settings are being saved. Try again after the current save finishes.");
+        if (this.visualizationSettingsKey() !== expected) throw new Error("Template settings changed while this dialog was open. Reopen it to preserve the newer settings.");
+        const valid = parseTemplateProfiles(profiles), ids = new Set(valid.map(p => p.id));
+        if (selected !== "auto" && !ids.has(selected)) throw new Error("Choose a saved profile or Automatic.");
+        const assignments = Object.fromEntries(Object.entries(this.settings.templateAssignments ?? {}).filter(([, id]) => ids.has(id)));
+        if (key) { if (selected === "auto") delete assignments[key]; else assignments[key] = selected; }
+        // Save before changing the live configuration, so a failed write retains the old view.
+        this.templateSaving = true;
+        try {
+          await this.saveData({ ...this.settings, templateVisualizations: valid, templateAssignments: assignments });
+          this.settings.templateVisualizations = valid;
+          this.settings.templateAssignments = assignments;
+          this.visualizationKey = this.visualizationSettingsKey();
+          if (!this.unloading) this.texRender.refreshVisualizations();
+        } finally { this.templateSaving = false; }
+      },
+      closed: () => this.templateModals.delete(modal),
+    });
+    this.templateModals.add(modal); modal.open();
   }
 
   /** The texlab binary (configured or auto-detected), cached until settings change. */

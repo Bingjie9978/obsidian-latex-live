@@ -25,6 +25,18 @@
   installed on the machine (pdfLaTeX, XeLaTeX, LuaLaTeX, latexmk, SyncTeX).
   It owns the editor view, the compile queue, log parsing, the PDF preview,
   and Obsidian integration. Never bundle or reimplement a TeX engine.
+- Custom template visualization is editor presentation only (`docs/template-visualization.md`).
+  Profiles live in plugin settings, with assignments keyed by NFC vault-relative root paths.
+  `templateVisualization.ts` validates bounded, declarative rules; `templateVisualizationModal`
+  edits an independent draft and saves explicitly. Preserve other settings, reject stale dialogs
+  and overlapping saves, and close dialogs on unload. `TexRender.visualizationOf` caches a separate
+  presentation map by native theorem-map/profile identity; its refresh notifies shared live
+  renderers without changing math epochs, document, selection, undo or native `LatexRefs`.
+  Never feed profile headings/colors into reference names, exports, TeX fragments or proof graphs.
+  Unknown counters are never inferred from rules; configured numbering uses real aux labels.
+  Test with templateVisualization/Modal tests, latexLive's multi-pane handoff, and
+  `node scripts/template-visualization-smoke.mjs` (trusted pointer Apply/Cancel, atomic validation,
+  native-data preservation and dark 375px controls).
 - `src/tex/` must stay free of the `obsidian` module so it runs under Node
   tests against real TeX. Obsidian glue lives in `src/main.ts`,
   `src/session.ts`, `src/editor/`, and `src/preview/`.

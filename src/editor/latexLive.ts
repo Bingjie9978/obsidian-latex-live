@@ -83,6 +83,8 @@ import { LiveContext, LiveLanguage, RenderWidget, TextWidget, renderConstruct } 
 export interface LatexLiveEnv {
   /** The root's references, read at every build (TexRender's `refsOf`); a new object when they change. */
   refs(): LatexRefs;
+  /** Editor-only profile overrides, independent of the native reference/TeX definitions. */
+  visualization?(): import("./templateVisualization").TemplateVisualization;
   /**
    * The document's \include name (`chapters/ch4`, project's `includeName`): its checkpoint in the
    * .aux numbers the boxes without a label (boxNumber). Without one they show no number.
@@ -186,6 +188,7 @@ export function latexLiveLanguage(env: LatexLiveEnv): LiveLanguage<LatexConstruc
     reveals: (c) => (c.kind === "env" && !CROP_ENVS.has(c.env) ? [[c.from, c.beginTo], [c.endFrom, c.endFrom]] : null),
     decorate(c, ctx) {
       const { doc } = ctx.state;
+      if ("env" in c && c.env && env.visualization?.().source.has(c.env)) return;
       if (c.kind === "math") {
         const req = ctx.request("math", prepared(c), c.display, c.from);
         // #4: a block formula MathJax rejected shows its crop, when there is one.
@@ -222,7 +225,7 @@ export function latexLiveLanguage(env: LatexLiveEnv): LiveLanguage<LatexConstruc
       }
       if (c.kind === "env") {
         const refs = env.refs();
-        const def = refs.theorems.get(c.env);
+        const def = (env.visualization?.().theorems ?? refs.theorems).get(c.env);
         if (def) decorateBox(c, def, ctx, refs, env.file);
         else if (CROP_ENVS.has(c.env) && env.crop) {
           const kind = cropKindOf(doc, c, c.env, refs.theorems);
@@ -361,7 +364,7 @@ function boxArgs(c: LatexEnv, def: TheoremDef, doc: Text): { title: LatexArg | n
     const o = args[k]?.optional ? args[k++] : null;
     const last = def.spec === "tcb" && args[k] && !args[k].optional ? args[k++] : null;
     const key = last ? doc.sliceString(last.from, last.to).trim() : "";
-    return { title: g ?? o, label: def.spec === "tcb*" ? null : key ? `${def.prefix}:${key}` : c.label, taken: k };
+    return { title: g ?? o, label: def.spec === "tcb*" ? null : key ? (def.prefix ? `${def.prefix}:${key}` : key) : c.label, taken: k };
   }
   const first = def.spec && args[0] && args[0].optional === (def.spec === "o") ? args[0] : null;
   return { title: first, label: c.label, taken: first ? 1 : 0 };

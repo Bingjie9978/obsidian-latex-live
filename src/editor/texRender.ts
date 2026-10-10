@@ -15,6 +15,7 @@ import { LatexBlock, LatexEnv, LatexMath, blockAt, formulas, mathAt, scanLatex }
 import { MathError, MathJaxLike, ProjectMath, ProjectMathInput, inputEpoch, numberedEnv, tagLabels } from "./mathjaxProject";
 import type { FragmentRenderer, RenderRequest, RenderResult } from "./shared/livePreview";
 import { hoverError } from "./shared/renderHover";
+import { applyTemplateVisualization, type TemplateVisualization, type TemplateVisualizationProfile } from "./templateVisualization";
 
 // Rendering for LaTeX editors (design 4.1, 4.8): one ProjectMath per root document over
 // Obsidian's MathJax, PDF crops (the host's `crops`, blockCrop.ts), the render hover's chain and
@@ -93,6 +94,8 @@ const CACHE_SIZE = 200;
 const BRACE_ERROR = /^(?:Missing|Extra) (?:open|close) brace/;
 
 export interface TexRenderHost {
+  /** Explicit editor visualization selected for this root; never used by native TeX or refs. */
+  visualization?(root: string): TemplateVisualizationProfile | null;
   /** The build folder of a root document (its .aux files hold the label numbers). */
   outDirFor(root: string): string;
   /** Text of the open LaTeX editors by absolute path (unsaved edits count). */
@@ -299,6 +302,24 @@ export class TexRender {
     return this.rootRefs(root).refs;
   }
 
+  private visualizations = new Map<string, { native: LatexRefs["theorems"]; profile: TemplateVisualizationProfile | null; value: TemplateVisualization }>();
+
+  visualizationOf(root: string): TemplateVisualization {
+    const native = this.refsOf(root).theorems, profile = this.host.visualization?.(root) ?? null;
+    const cached = this.visualizations.get(root);
+    if (cached && cached.native === native && cached.profile === profile) return cached.value;
+    let value: TemplateVisualization;
+    try { value = applyTemplateVisualization(native, profile); }
+    catch { value = applyTemplateVisualization(native, null); }
+    this.visualizations.set(root, { native, profile, value });
+    return value;
+  }
+
+  refreshVisualizations(): void {
+    this.visualizations.clear();
+    for (const renderer of this.renderers.values()) renderer.changed();
+  }
+
   private rootRefs(root: string): RootRefs {
     let r = this.refs.get(root);
     if (!r) {
@@ -480,6 +501,7 @@ export class TexRender {
   }
 
   dispose(): void {
+    this.visualizations.clear();
     for (const r of [...this.roots.values(), ...this.refs.values()]) if (r.timer !== null) window.clearTimeout(r.timer);
     this.roots.clear();
     this.refs.clear();

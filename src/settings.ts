@@ -1,11 +1,15 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import type LatexLivePlugin from "./main";
 import type { EngineSetting } from "./tex/project";
+import type { TemplateVisualizationProfile } from "./editor/templateVisualization";
 
 /** Source text, or live preview (编辑模式): formulas render in place, source under the cursor. */
 export type EditingMode = "source" | "live";
 
 export interface LatexLiveSettings {
+  templateVisualizations: TemplateVisualizationProfile[];
+  /** Root paths relative to this vault; missing means native automatic visualization. */
+  templateAssignments: Record<string, string>;
   /** Directory with pdflatex, latexmk, synctex; empty means auto-detect. */
   texBinDir: string;
   /** Engine when the document has no `% !TEX program` comment. */
@@ -46,6 +50,8 @@ export interface LatexLiveSettings {
 }
 
 export const DEFAULT_SETTINGS: LatexLiveSettings = {
+  templateVisualizations: [],
+  templateAssignments: {},
   texBinDir: "",
   engine: "auto",
   debounceMs: 400,
@@ -108,6 +114,12 @@ export class LatexLiveSettingTab extends PluginSettingTab {
         const n = Number(v.trim());
         if (Number.isFinite(n) && n >= 50 && n <= 200) { s.mathPreviewScale = n / 100; save(); }
       }));
+
+    new Setting(containerEl).setName("Template visualization").setHeading();
+    new Setting(containerEl)
+      .setName("Custom template profiles")
+      .setDesc("Configure environment headings, colors and title arguments. Choose a saved profile per LaTeX project; applies in live preview only.")
+      .addButton(button => button.setButtonText("Manage / choose profiles").onClick(() => this.plugin.openTemplateVisualizations()));
 
     new Setting(containerEl).setName("Compilation").setHeading();
 

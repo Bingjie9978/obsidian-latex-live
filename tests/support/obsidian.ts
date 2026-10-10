@@ -59,7 +59,7 @@ export const MarkdownRenderer = {
   },
 };
 
-type DomInfo = string | { cls?: string | string[]; text?: string; attr?: Record<string, string | number | boolean> };
+type DomInfo = string | { cls?: string | string[]; text?: string; value?: string; attr?: Record<string, string | number | boolean> };
 type Helpers = {
   createEl(tag: string, o?: DomInfo, cb?: (el: HTMLElement) => void): HTMLElement;
   createDiv(o?: DomInfo, cb?: (el: HTMLElement) => void): HTMLElement;
@@ -76,6 +76,7 @@ function installDomHelpers(): void {
       const child = document.createElement(tag);
       const info = typeof o === "string" ? { cls: o } : o;
       if (info.cls) child.className = [info.cls].flat().join(" ");
+      if (info.value !== undefined) (child as HTMLInputElement).value = info.value;
       if (info.text !== undefined) child.textContent = info.text;
       for (const [k, v] of Object.entries(info.attr ?? {})) child.setAttribute(k, String(v));
       this.appendChild(child);

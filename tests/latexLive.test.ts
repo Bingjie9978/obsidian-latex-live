@@ -21,6 +21,7 @@ import { TexCrops, TexRender } from "../src/editor/texRender";
 import { NOTE_CHANGED } from "../src/preview/blockCrop";
 import { readAuxLabels } from "../src/tex/aux";
 import { theoremMap } from "../src/tex/theorems";
+import type { TemplateVisualizationProfile } from "../src/editor/templateVisualization";
 import { press, sleep, waitFor } from "./support/keyMatrix";
 import { obsidianMathJax } from "./support/mathjax";
 
@@ -38,7 +39,7 @@ const chars = (el: Element): string =>
   [...el.querySelectorAll("mjx-c")].map((c) => String.fromCodePoint(parseInt(c.className.split(" ")[0].slice(5), 16))).join("");
 
 /** A copy of the fixture book with TexRender over Obsidian's MathJax (and `crops`), preloaded. */
-async function project(crops?: TexCrops) {
+async function project(crops?: TexCrops, visualization?: (root: string) => TemplateVisualizationProfile | null) {
   const { window: mw, MathJax } = await obsidianMathJax();
   const dir = mkdtempSync(join(tmpdir(), "ll-live-"));
   const book = join(dir, "book");
@@ -47,6 +48,7 @@ async function project(crops?: TexCrops) {
   mkdirSync(join(outDir, "chapters"), { recursive: true });
   const pdfPages: string[] = [];
   const render = new TexRender({
+    visualization,
     outDirFor: () => outDir,
     buffers: () => new Map(),
     images: {
@@ -90,6 +92,7 @@ async function project(crops?: TexCrops) {
           live: livePreview({
             language: latexLiveLanguage({
               refs: () => fixed || render.refsOf(root),
+              ...(visualization ? { visualization: () => render.visualizationOf(root) } : {}),
               file,
               image: (path) => render.imageOf(root, path),
               crop: (d, from, to, kind) => render.cropOf(root, join(book, "chapters/ch2.tex"), d, from, to, kind),
@@ -609,6 +612,51 @@ test("T-L8 keys stay keyArbiter's: arrows reveal collapsed lines one at a time; 
 /** The theorem boxes: class, colour and the first line's text. */
 const boxes = (view: EditorView) =>
   [...view.contentDOM.querySelectorAll<HTMLElement>(".lsp-lp-box")].map((b) => [b.className, b.style.getPropertyValue("--lp-box-color").trim()]);
+
+test("project visualization updates every pane while native references, document, selection and labels stay unchanged", async () => {
+  let profile: TemplateVisualizationProfile | null = {
+    id: "custom", name: "My template", environments: [
+      { environment: "definition", name: "Visual definition", color: "#aa33cc" },
+      { environment: "customThm", name: "Custom theorem", arguments: "tcb", numbered: true, color: "#2299aa" },
+      { environment: "proof", render: "source" },
+    ],
+  };
+  const p = await project(undefined, () => profile);
+  try {
+    writeFileSync(join(p.outDir, "main.aux"), String.raw`\newlabel{literal}{{7}{1}{Native caption}{theorem.7}{}}`);
+    p.render.opened(p.root); await sleep(10);
+    const native = p.render.refsOf(p.root), original = JSON.stringify([...native.theorems]);
+    const source = String.raw`\begin{definition}{A definition}
+Text.
+\end{definition}
+\begin{customThm}{Wrapped
+title}{literal}
+Text.
+\end{customThm}
+\begin{proof}
+Text.
+\end{proof}
+end`;
+    const a = await p.mount(source), b = await p.mount(source);
+    for (const view of [a, b]) {
+      assert.deepEqual(boxes(view).map(([, color]) => color), ["#aa33cc", "#2299aa"]);
+      assert.match(view.contentDOM.textContent!, /Custom theorem 7 \(Wrapped title\)/, "literal label arguments work without a fabricated null: prefix");
+      assert.match(view.contentDOM.textContent!, /\\begin\{proof\}/);
+      assert.equal(view.contentDOM.querySelectorAll(".lsp-lp-box").length, 2);
+    }
+    const docs = [a.state.doc, b.state.doc], selections = [a.state.selection, b.state.selection];
+    profile = null; p.render.refreshVisualizations(); await sleep(60);
+    for (const [i, view] of [a, b].entries()) {
+      assert.ok(boxes(view).every(([, color]) => color !== "#aa33cc" && color !== "#2299aa"));
+      assert.match(view.contentDOM.textContent!, /\\begin\{customThm\}/, "automatic mode restores unknown environment markup");
+      assert.equal(view.state.doc, docs[i]); assert.ok(view.state.selection.eq(selections[i]));
+    }
+    assert.equal(p.render.refsOf(p.root), native, "visual profiles never change the native reference snapshot");
+    assert.equal(JSON.stringify([...native.theorems]), original);
+    assert.equal(native.theorems.get("definition")!.name, "定义");
+    assert.equal(native.numbers.get("literal"), "7");
+  } finally { p.done(); }
+});
 
 test("an inherited ElegantBook class paints wrapped theorem heads and reveals every title row", async () => {
   const p = await project();
