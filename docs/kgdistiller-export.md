@@ -1,12 +1,12 @@
-# Headless kgdistiller HTML bridge
+# Headless LaTeX HTML bridge (`latex-live-export`)
 
 The independent entry is `scripts/kgdistiller-export.mjs`. It uses the existing
 project macro handling, isolated MathJax and native document exporter, without
 Obsidian UI or a LaTeX-to-Typst conversion. Install this checkout's npm
 dependencies first, then invoke `node scripts/kgdistiller-export.mjs`, or link
-the executable as `latex-live-export` on PATH. kgdistiller can select another
-location through `KGDISTILLER_LATEX_HTML_COMMAND`, a JSON argv array; no shell
-evaluates it.
+the executable as `latex-live-export` on PATH. A caller can select another
+location with its own JSON argv setting (the notes toolchain uses
+`LATEX_LIVE_EXPORT_COMMAND`); no shell evaluates it.
 
 ## Request and response
 
@@ -15,7 +15,8 @@ The request schema is `latex-live-html-request-v1`; the response schema is
 `latex-live-html-result-v1`, with the same `operation`. Errors go to stderr and
 exit nonzero. The two operations are:
 
-- `labels`: optional absolute `.tex` `source`, and `labels: [{id, latex}]`.
+- `labels` (currently unused by any caller): optional absolute `.tex`
+  `source`, and `labels: [{id, latex}]`.
   Returns `labels: [{id, html}]` containing safe self-contained MathML. Project
   macros come from the source's root. This mode needs Node/MathJax but no TeX
   build, CHTML stylesheet, or font files in the consumer.
@@ -27,9 +28,10 @@ exit nonzero. The two operations are:
   fragments use native PDF and require a supported dvisvgm PDF backend, such as
   mutool (MuPDF tools).
 
-kgdistiller owns identity decisions. Each marker mapping preserves an exact raw
-TeX name and supplies its established stable ID and URL. Several raw names may
-share one ID only with the same URL. Displayed text never determines identity.
+The caller owns identity decisions (for notes, `knowledge_registry.py` and
+`knowledge-ids.json`). Each marker mapping preserves an exact raw TeX name and
+supplies its established stable ID and URL. Several raw names may share one ID
+only with the same URL. Displayed text never determines identity.
 Unknown markers and duplicate active definitions fail. Definitions emit
 `id="kn-ID" data-ql-kn="ID"`; references emit `data-ql-ref="ID"` with the supplied
 URL. Math belongs in the marker argument, such as `\kn{$\sigma$-algebra}`;

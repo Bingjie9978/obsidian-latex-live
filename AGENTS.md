@@ -724,10 +724,11 @@
   remove the per-view container on destroy. The browser regression uses a narrow clipped
   pane beside a PDF placeholder: `elementFromPoint` must hit the second-column node before
   actual pointer press/release expands it. DOM existence or a synthetic `.click()` is insufficient.
-- The independent kgdistiller CLI bridge follows
-  [docs/kgdistiller-export.md](docs/kgdistiller-export.md). Keep graph identity
-  decisions in kgdistiller and reuse the existing renderer; bridge tests and
-  the full suite share one bundle cache and must run sequentially.
+- The headless `latex-live-export` bridge used by the notes web export follows
+  [docs/kgdistiller-export.md](docs/kgdistiller-export.md). Keep marker identity
+  decisions with the caller (the notes knowledge registry) and reuse the
+  existing renderer; bridge tests and the full suite share one bundle cache and
+  must run sequentially.
 - Build output goes to `$TMPDIR/obsidian-latex-live/<hash of root>/`, never
   into the vault.
 - Desktop only (`isDesktopOnly: true`).
