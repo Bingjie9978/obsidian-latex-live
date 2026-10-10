@@ -82,6 +82,47 @@ The AMS / IEEE clips contain actual edits. PLOS / REVTeX show prepared complete 
 
 </details>
 
+### Customization: create your own template's visual editing mode
+
+> Available in the current development build on `main`; not included in the [0.1.7 release](https://github.com/qiulinfan/obsidian-latex-live/releases/tag/0.1.7).
+
+#### Why a universal visual rule set is difficult
+
+LaTeX classes, packages and project macros define how commands and environments behave. A `thm` environment might take an optional `[title]` in one project and `{title}{label}` in another. Its numbering and appearance depend on those definitions too. The [LaTeX class/package authoring guide](https://www.latex-project.org/help/documentation/clsguide.pdf) describes this extensibility.
+
+A visual editor that faithfully covers arbitrary projects has to account for macro expansion, conditional behavior and typesetting, beyond recognizing syntax. A fixed interpretation can show the wrong heading or hide text that belongs in the document. LaTeX Live uses the installed TeX toolchain for the native PDF, while the live editor renders the structure it understands and keeps other constructs as editable source.
+
+#### Why add custom visualization?
+
+Long mathematics notes are easier to navigate when definitions, theorems and proofs have familiar visual cues. Authors use different environment names, colors and heading conventions. Custom profiles let you bring those choices into the editor, including environments the built-in template detection does not recognize. You can keep your existing `.cls` and `.sty` files and create several editing schemes for different projects.
+
+#### Create a scheme
+
+1. Open a `.tex` project and switch to **live preview**. Go to **Settings → LaTeX Live → Custom template profiles → Manage / choose profiles**, or run **LaTeX Live: Choose / edit template visualization**.
+2. Click **New profile** and give it a name, such as **My mathematics notes**.
+3. Add your template's actual environment names, without `\begin` or braces. Choose their heading text and colors. Configure the title arguments to match the template: `[title]`, `{title}`, or the supported title/label form. **Auto** preserves detected behavior.
+4. Click **Save and use selected profile**. The scheme applies to that root document and its chapter files. Select another saved profile for another project, or **Automatic (original template)** to restore built-in detection.
+
+For example, if your template already defines `defn`, `thm` and `proof`, you could create these rules:
+
+| Environment | Editor heading | Color | Title arguments |
+| --- | --- | --- | --- |
+| `defn` | Definition | Green, `#00a652` | Optional `[title]` |
+| `thm` | Theorem | Orange, `#ff8618` | Optional `[title]` |
+| `proof` | Proof | Orange, `#ff8618` | Auto |
+
+For this source, the `thm` rule would show an orange theorem block with “Closure properties” in its heading:
+
+```tex
+\begin{thm}[Closure properties]\label{thm:closure}
+The statement and its surrounding mathematics stay editable here.
+\end{thm}
+```
+
+To display a number, use a compiled label and the **Numbered** setting; profiles do not create TeX counters. You can also configure the title position and end mark, or keep an environment's markup visible. Changes stay in a draft until saved; **Cancel** discards them. Profiles are shared within a vault, so editing one updates every project using it. The JSON panel lets you copy and import schemes for reuse.
+
+This first version customizes **theorem-like environments**. It controls the live editing view; PDF layout, native reference names and HTML export continue to use the original TeX template. See the [rule format, supported argument forms and limits](./docs/template-visualization.md).
+
 ### Share a portable reading edition
 
 Export a self-contained HTML page with math, theorem blocks, references, bibliography, images and supported SVG graphics. Follow its references and table of contents without Obsidian; inspect the export report for unsupported content.
@@ -267,6 +308,47 @@ ElegantBook 只是其中一种。**AMS、IEEE** 论文类也录下了相同的�
 AMS / IEEE 片段包含实际修改；PLOS / REVTeX 展示完成全文构建后的实时阅读模式，属于模板展示，不是冷编译基准。
 
 </details>
+
+### 自定义：创造你自己的模板可视化编辑模式
+
+> 当前开发版（`main` 分支）已提供此功能；[0.1.7 发布版](https://github.com/qiulinfan/obsidian-latex-live/releases/tag/0.1.7)尚未包含。
+
+#### 为什么很难有一套覆盖所有模板的可视化规则？
+
+LaTeX 的命令和环境由文档类、宏包和项目自己的宏共同定义。同样叫 `thm` 的环境，在一个模板里可能接收可选的 `[标题]`，在另一个模板里可能接收 `{标题}{标签}`；编号方式和外观也由这些定义决定。[LaTeX 官方文档类与宏包编写指南](https://www.latex-project.org/help/documentation/clsguide.pdf)介绍了这种扩展机制。
+
+要忠实处理任意项目，可视化编辑器还需要考虑宏展开、条件分支和排版行为。仅凭语法套用固定解释，可能显示错误的框头，或者隐藏本应保留的正文。LaTeX Live 把原生 PDF 交给本机 TeX 工具链生成；编辑视图呈现已理解的结构，其余构造保留为可编辑的源码。
+
+#### 为什么推出这个功能？
+
+写长篇数学笔记时，熟悉的定义框、定理框和证明样式能帮助我们找到论证的结构。每个人使用的环境名、颜色和标题习惯又各不相同。自定义方案让作者把这些习惯带进编辑器，也能为自动识别尚未支持的环境指定呈现方式。你可以继续使用自己的 `.cls`、`.sty`，为不同项目保存不同的编辑方案。
+
+#### 如何创作自己的方案？
+
+1. 打开 `.tex` 项目，切换到 **live preview（实时编辑模式）**。进入 **设置 → LaTeX Live → Custom template profiles → Manage / choose profiles**，或执行 **LaTeX Live: Choose / edit template visualization**。
+2. 点击 **New profile**，给方案命名，例如“我的数学笔记”。
+3. 添加模板中实际使用的环境名，不填写 `\begin` 或花括号。为它们选择框头文字和颜色，并按模板配置标题参数：`[标题]`、`{标题}`，或支持的标题／标签形式。**Auto** 保留自动识别的行为。
+4. 点击 **Save and use selected profile**，应用到当前根文档及其章节。其他项目可以选择另一个已保存方案；选择 **Automatic (original template)** 恢复内置识别。
+
+例如，你的模板已经定义了 `defn`、`thm`、`proof`，就可以配置：
+
+| 环境 | 编辑器框头 | 颜色 | 标题参数 |
+| --- | --- | --- | --- |
+| `defn` | 定义 | 绿色，`#00a652` | 可选 `[标题]` |
+| `thm` | 定理 | 橙色，`#ff8618` | 可选 `[标题]` |
+| `proof` | 证明 | 橙色，`#ff8618` | Auto |
+
+下面这段源码就会按 `thm` 规则显示为橙色定理框，框头包含“闭包性质”：
+
+```tex
+\begin{thm}[闭包性质]\label{thm:closure}
+这里的陈述及周围的数学内容仍然可以继续编辑。
+\end{thm}
+```
+
+需要显示编号时，使用已编译的标签并配置 **Numbered**；方案不会创建 TeX 计数器。你还可以调整标题位置和结束符，或保留某个环境的标记源码。修改先保留在草稿中，保存后才生效，**Cancel** 可以放弃。方案在同一 vault 内共享，修改一个方案会更新所有使用它的项目；JSON 面板可复制、导入方案，方便复用。
+
+首版支持**定理类环境**的自定义。规则控制实时编辑视图；PDF 版式、原生引用名称和 HTML 导出继续遵循原来的 TeX 模板。详见[规则格式、参数形式与支持边界](./docs/template-visualization.md)。
 
 ### 分享可独立阅读的 HTML
 
