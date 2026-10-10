@@ -249,7 +249,7 @@ YOLO 自己的按键映射被过滤掉，只保留渲染，触发走 YOLO 自己
   大括号外的换行，同一行后面的内容也不装饰。`\iffalse` 只在行首时当注释跳过（`\let\ifx\iffalse` 是代码）；
   打到一半、还没有 `\fi` 的 `\iffalse` 一直跳到文末，和 TeX 一样。enumitem 的 `resume` 只跟列表的嵌套，
   不跟定理之类别的环境的分组（enumitem 在那里恢复不到）。
-- 实时预览的定理框和图片（P4）：定理框的 `\begin`（参数和紧跟的 `\label` 可以在同一行）和 `\end` 必须各自独占一行、
+- 实时预览的定理框和图片（P4）：定理框的 `\begin`（闭合的标题参数可以换行，后接 `\label`）和 `\end` 必须各自独占所在行、
   在 200 行内闭合；编号来自 .aux 里这个框的标签（elegantbook 的 `{title}{label}`，或 `\begin` 行上、下一行开头的
   `\label`）；没有标签的框只在 `\include` 进来的章节里、且那一章 .aux 的 `\@setckpt` 计数对得上时按位置数出编号
   （见下文“P4–P6 的审查修复”），`\input` 进来的文件、单文件文档、`thmcnt=section`、打字后多出来还没编译的框只显示名字；
@@ -756,14 +756,14 @@ cleveref 的选项、`\crefname`/`\Crefname`、`\newtheorem`、`\<type>autorefna
 实时模式下再加三类构造（design 4.4 #12、#8 的 figure/table、#13），光标规则和前面一样：
 
 - **定理框**：项目的定理表（`src/tex/theorems.ts`，纯函数，输入是项目源文件去掉注释后的文本，主文件在前）里的环境，
-  `\begin`（连同同一行的参数和紧跟的 `\label`）和 `\end` 各自独占一行时，整段画成一个 BlockWrapper 框
+  `\begin`（连同闭合的参数和紧跟的 `\label`；标题可以换行）和 `\end` 各自独占所在行时，整段画成一个 BlockWrapper 框
   （`lsp-lp-box`，颜色角色 `is-main|is-second|is-third`，elegantbook 的配色写进 `--lp-box-color`；上下外边距和内边距都是 0，
   间距只靠行）。`\begin` 行显示 PDF 印出来的框头：`定理 1.1 (全期望公式)`（elegantbook）、`Theorem 2.1 (Cauchy–Schwarz).`
   （amsthm 带句点）、`例题 1.1 抛硬币`（elegantbook 的 example 标题跟在编号后）、`Proof.`/`Proof of theorem 2.1.`（amsthm 的
   proof，可选参数替换名字）、`证明`；编号来自 .aux 里这个框的标签：elegantbook 的 `{title}{label}` 按前缀变成 `thm:label`，
   否则是 `\begin` 行上或下一行开头的 `\label`。标题里有公式或引用时不换成文字：标题留在原处（和框头一个样式），两边的
   框头部分是标签，公式照常渲染。`\end` 行折叠；amsthm 的 proof 在那一行靠右显示 □（elegantbook 的 proof 没有结束符）。
-  光标在 `\begin` 行或 `\end` 行上时只有那一行显示源码；正文是普通文字，在里面打字框不变；框可以嵌套；不在定理表里的
+  光标或错误诊断落在多行框头的任意一行时，整个框头显示源码；`\end` 行单独展开。正文是普通文字，在里面打字框不变；框可以嵌套；不在定理表里的
   环境（`unknown`、`minipage`、`abstract`…）保持源码；某一行有错误诊断时那一行保持源码，框还在。
 - **定理表**：amsthm 的 proof（ctex 的类或 ctex 宏包时叫 证明）；`\newtheorem{env}[shared]{Title}[within]` 编号、
   `\newtheorem*` 不编号，用 amsthm（或 AMS 文档类）时框头带句点；elegantbook 的七个 tcolorbox 定理（参数 `g o t\label g`，
@@ -773,6 +773,9 @@ cleveref 的选项、`\crefname`/`\Crefname`、`\newtheorem`、`\<type>autorefna
   默认 blue（`\DeclareStringOption[blue]{color}`，所以合成书的框是 main 0,166,82、second 255,134,24、third 0,174,247）；
   `\elegantnewtheorem{env}{名字}{style}{prefix}`（前缀缺省是环境名）。`tests/theorems.test.ts` 把这张表和装好的
   elegantbook.cls（v4.6）逐项对照：五种配色的 RGB、cn/en 的 17 个名字、七个定理的前缀和样式。
+  本地自定义类可通过字面的 `\ProvidesClass` 和 `\LoadClass` 链继承这些模板；继承语言和配色选项，支持
+  `\LoadClassWithOptions` 及加载前的 `\PassOptionsToClass`。普通 `\LoadClass` 不会自动传递包装类的选项；
+  循环、重名类或多个可能的基类保持未识别，不猜测 TeX 条件分支。
   定理表和引用数据一起读（`TexRender.refsOf(root).theorems`）：项目文件保存后 300 ms、改到 `\documentclass`、
   `\usepackage`、`\newtheorem`、`\elegantnewtheorem`、`\graphicspath` 这些行后 500 ms 重读，内容不变就不换对象。
 - **引用的类型名**（P3 推迟的一项）：用合成探针对过 PDF（TeX Live 2026）：`\newtheorem{thm}{Theorem}` 的 `\autoref` 只印编号

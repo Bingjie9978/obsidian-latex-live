@@ -481,17 +481,20 @@ const skipBlanks = (s: string, i: number): number => {
 };
 
 /**
- * The index after the argument opened by s[i] (`{` or `[`) when it closes on this line
- * (braces balanced; an optional argument ends at its first `]` outside braces), else -1.
+ * The index after a balanced argument (an optional argument ends at its first `]` outside
+ * braces), else -1. Inline constructs stay on one line; environment heads allow bounded wraps.
  */
-function argEnd(s: string, i: number): number {
+function argEnd(s: string, i: number, maxLines = 0): number {
   const optional = s[i] === "[";
+  let lines = 0;
   for (let j = i + 1, depth = 0; j < s.length; j++) {
     const c = s[j];
     if (c === "\\") {
-      if (s[j + 1] === "\n") return -1;
-      j++;
-    } else if (c === "\n" || c === "%") {
+      if (s[j + 1] === "\n") { if (!maxLines) return -1; }
+      else j++;
+    } else if (c === "\n") {
+      if (++lines > maxLines || paragraphBreak(s, j)) return -1;
+    } else if (c === "%") {
       return -1;
     } else if (c === "{") {
       depth++;
@@ -693,12 +696,12 @@ interface OpenEnv {
   at: number;
 }
 
-/** The `{..}` and `[..]` arguments after `\begin{env}` (ending at s[j]) on its line, and where they end. */
+/** The balanced `{..}` and `[..]` arguments after `\begin{env}`, including wrapped titles. */
 function beginArgs(s: string, j: number): { args: LatexArg[]; beginTo: number } {
   const args: LatexArg[] = [];
   let k = skipBlanks(s, j);
   while (s[k] === "{" || s[k] === "[") {
-    const e = argEnd(s, k);
+    const e = argEnd(s, k, MAX_LINES);
     if (e < 0) break;
     args.push({ optional: s[k] === "[", from: k + 1, to: e - 1 });
     k = skipBlanks(s, e);

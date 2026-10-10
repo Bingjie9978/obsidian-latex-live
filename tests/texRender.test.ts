@@ -22,6 +22,26 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const glyphs = (el: Element): string[] => [...el.querySelectorAll("mjx-c")].map((c) => c.className.split(" ")[0]);
 const chars = (el: Element): string => glyphs(el).map((c) => String.fromCodePoint(parseInt(c.slice(5), 16))).join("");
 
+test("TexRender refreshes inherited theorem colors after an unsaved LoadClass edit", async () => {
+  const t = await setup();
+  try {
+    writeFileSync(t.root, String.raw`\documentclass{local-notes}\begin{document}\end{document}`);
+    const file = join(t.book, "local-notes.cls");
+    const before = String.raw`\ProvidesClass{local-notes}\LoadClass[lang=cn,color=blue]{elegantbook}`;
+    writeFileSync(file, before);
+    const first = t.render.refsOf(t.root);
+    assert.equal(first.theorems.get("definition")!.color, "rgb(0, 166, 82)");
+    const change = EditorState.create({ doc: before }).update({ changes: { from: before.indexOf("blue"), to: before.indexOf("blue") + 4, insert: "green" } });
+    t.buffers.set(file, change.state.doc.toString());
+    t.render.edited(file, change.changes, change.startState.doc, change.state.doc);
+    await sleep(550);
+    const next = t.render.refsOf(t.root);
+    assert.equal(next.theorems.get("definition")!.color, "rgb(0, 120, 2)");
+    assert.equal(next.theorems.get("theorem")!.name, "定理");
+    assert.equal(readFileSync(file, "utf8"), before, "an unsaved buffer wins without rewriting the file");
+  } finally { t.done(); }
+});
+
 test("TexRender source cards: committed definitions stay private, reuse the root input, and install glyph styles in a popout", async () => {
   const t = await setup();
   const counter = await countTexInputs();

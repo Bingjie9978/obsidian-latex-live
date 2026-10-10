@@ -165,6 +165,9 @@ const STYLE_ROLES: Record<string, TheoremRole> = { defstyle: "main", thmstyle: "
 const ROLES: readonly TheoremRole[] = ["main", "second", "third"];
 
 const DOCUMENTCLASS = /\\documentclass\s*(?:\[([^\]]*)\])?\s*\{\s*([^}\s]+)\s*\}/;
+const PROVIDESCLASS = /\\ProvidesClass\s*\{\s*([^}\s]+)\s*\}/;
+const LOADCLASS = /\\LoadClass(WithOptions)?\s*(?:\[([^\]]*)\])?\s*\{\s*([^}\s]+)\s*\}/;
+const PASS_OPTIONS = /\\PassOptionsToClass\s*\{([^{}]*)\}\s*\{\s*([^}\s]+)\s*\}/g;
 const PACKAGES = /\\(?:usepackage|RequirePackage)\s*(?:\[([^\]]*)\])?\s*\{([^}]*)\}/g;
 /** A brace group (two levels of nesting inside), its content captured. */
 const ARG = String.raw`\{((?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*)\}`;
@@ -190,17 +193,52 @@ function classOptions(options: string | undefined): Map<string, string> {
   return out;
 }
 
+/** Follow literal local class inheritance, stopping at the templates whose contracts we know. */
+function templateClass(sources: readonly string[]): { name: string; options: Map<string, string> } {
+  const nameOf = (name: string) => name.replace(/^.*[/\\]/, "").replace(/\.cls$/, "");
+  const classes = new Map<string, string | null>();
+  for (const src of sources) {
+    const provided = PROVIDESCLASS.exec(src);
+    if (provided) {
+      const name = nameOf(provided[1]);
+      // Two different files claiming the same class are not a safe inheritance link.
+      classes.set(name, classes.has(name) ? null : src);
+    }
+  }
+  const root = sources.find(src => DOCUMENTCLASS.test(src)) ?? "";
+  const declared = DOCUMENTCLASS.exec(root);
+  let name = nameOf(declared?.[2] ?? "");
+  const pending = new Map<string, string[]>();
+  const pass = (src: string) => {
+    for (const m of src.matchAll(PASS_OPTIONS)) {
+      const target = nameOf(m[2]);
+      pending.set(target, [...(pending.get(target) ?? []), m[1]]);
+    }
+  };
+  pass(root.slice(0, declared?.index ?? 0));
+  let options = [...(pending.get(name) ?? []), declared?.[1] ?? ""].join(",");
+  const seen = new Set<string>();
+  while (name && !seen.has(name) && !/^(?:elegant(?:book|note|paper)|llncs|ams(?:art|book|proc)|ctex(?:art|rep|book|beamer))$/.test(name)) {
+    seen.add(name);
+    const src = classes.get(name);
+    const loads = src ? [...src.matchAll(new RegExp(LOADCLASS, "g"))] : [];
+    const load = loads.length === 1 ? loads[0] : null;
+    if (!src || !load) break;
+    pass(src.slice(0, load.index));
+    name = nameOf(load[3]);
+    options = [...(pending.get(name) ?? []), load[1] ? options : "", load[2] ?? ""].join(",");
+  }
+  return { name, options: classOptions(options) };
+}
+
 /** The theorem-like environments the sources define (see the file comment). */
 export function theoremMap(sources: readonly string[]): TheoremMap {
   const out = new Map<string, TheoremDef>();
-  let cls: RegExpExecArray | null = null;
   const packages = new Map<string, string>();
   for (const src of sources) {
-    cls ??= DOCUMENTCLASS.exec(src);
     for (const m of src.matchAll(PACKAGES)) for (const name of m[2].split(",")) packages.set(name.trim(), m[1] ?? "");
   }
-  const className = cls?.[2] ?? "";
-  const options = classOptions(cls?.[1]);
+  const { name: className, options } = templateClass(sources);
   const elegant = className === "elegantbook";
   const elegantArticle = className === "elegantnote" || className === "elegantpaper";
   // elegantbook: `lang=cn` or a bare `cn`, `mode=simple` or a bare `simple`, `color=..` or a bare scheme name.

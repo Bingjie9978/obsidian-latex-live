@@ -183,7 +183,7 @@ export function latexLiveLanguage(env: LatexLiveEnv): LiveLanguage<LatexConstruc
     // A theorem box tests the selection on its \begin and \end lines only (decorateBox): a move
     // inside a long one leaves it be. Every environment but a crop (which reveals over its lines)
     // says so, since the scan this is memoized with cannot see which ones the theorem map boxes.
-    reveals: (c) => (c.kind === "env" && !CROP_ENVS.has(c.env) ? [[c.from, c.from], [c.endFrom, c.endFrom]] : null),
+    reveals: (c) => (c.kind === "env" && !CROP_ENVS.has(c.env) ? [[c.from, c.beginTo], [c.endFrom, c.endFrom]] : null),
     decorate(c, ctx) {
       const { doc } = ctx.state;
       if (c.kind === "math") {
@@ -374,12 +374,13 @@ function boxArgs(c: LatexEnv, def: TheoremDef, doc: Text): { title: LatexArg | n
 function decorateBox(c: LatexEnv, def: TheoremDef, ctx: LiveContext, refs: LatexRefs, file: string | undefined): void {
   const { doc } = ctx.state;
   const begin = doc.lineAt(c.from);
+  const headLast = doc.lineAt(c.beginTo);
   const end = doc.lineAt(c.endFrom);
   const attributes: Record<string, string> = { class: def.role ? `lsp-lp-box is-${def.role}` : "lsp-lp-box" };
   if (def.color) attributes.style = `--lp-box-color: ${def.color}`;
   ctx.wrap(begin.from, end.to, { tagName: "div", attributes });
 
-  if (!ctx.touchLines(begin.from, begin.from) && !ctx.hasError(begin.from, begin.to)) {
+  if (!ctx.touchLines(begin.from, headLast.to) && !ctx.hasError(begin.from, headLast.to)) {
     const { title, taken } = boxArgs(c, def, doc);
     const numbered = boxNumber(doc, c, def, refs, file);
     const number = numbered ? texText(numbered.number) || numbered.number : "";
@@ -398,10 +399,10 @@ function decorateBox(c: LatexEnv, def: TheoremDef, ctx: LiveContext, refs: Latex
     // Arguments the environment does not take stay in place as text; the rest of the line (a
     // \label, a comment) hides with the head.
     const rest = c.args[taken];
-    const headEnd = rest ? rest.from - 1 : begin.to;
+    const headEnd = rest ? rest.from - 1 : headLast.to;
     if (rest) {
       const textEnd = c.args[c.args.length - 1].to + 1;
-      if (textEnd < begin.to) ctx.replace(textEnd, begin.to, HIDDEN);
+      if (textEnd < headLast.to) ctx.replace(textEnd, headLast.to, HIDDEN);
     }
     if (inPlace && title) {
       // `定理 1.1 (` title `)`: the title's formulas and references render in place.

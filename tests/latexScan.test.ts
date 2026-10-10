@@ -13,6 +13,23 @@ const read = (file: string) => doc(readFileSync(resolve(BOOK, file), "utf8"));
 /** A construct as [source text, display, env]. */
 const show = (d: Text, m: LatexMath) => [d.sliceString(m.from, m.to), m.display, m.env] as const;
 
+test("theorem heads accept balanced multiline titles without consuming an unfinished paragraph", () => {
+  const d = doc(String.raw`\begin{theorem}{A $\sigma$-algebra's
+closure {properties}}{closure}\label{thm:closure}
+Body.
+\end{theorem}`);
+  const c = scanLatex(d).find((c): c is LatexEnv => c.kind === "env")!;
+  assert.equal(c.env, "theorem");
+  assert.deepEqual(c.args.map(arg => d.sliceString(arg.from, arg.to)), ["A $\\sigma$-algebra's\nclosure {properties}", "closure"]);
+  assert.equal(c.label, "thm:closure");
+  assert.equal(d.lineAt(c.beginTo).number, 2);
+  assert.equal(formulas(d).length, 1, "title math remains an independent construct");
+  for (const title of ["{unfinished\n\nBody.", "{unfinished\n" + "line\n".repeat(201)]) {
+    assert.equal(scanLatex(doc("\\begin{theorem}" + title + "}\n\\end{theorem}")).some(c => c.kind === "env"), false);
+  }
+  assert.equal(scanLatex(doc("\\textbf{one\ntwo}")).length, 0, "ordinary inline styling still requires a single line");
+});
+
 test("formulas: every formula of ch1, and nothing escaped, verbatim or commented", () => {
   const d = read("chapters/ch1.tex");
   const all = formulas(d);

@@ -266,8 +266,9 @@
     `\begin`/`\end` lines of lists, `center`, `figure(*)` and `table(*)` alone on their lines
     collapse (a block replace without a widget) until the cursor is on the line; arrows reach them
     through `enterBlocks` like any block.
-  - theorem boxes: latexScan emits every other environment whose `\begin` (with the arguments and
-    a `\label` on its line) and `\end` are alone on their lines, within 200 lines, as an `env`
+  - theorem boxes: latexScan emits every other environment whose `\begin` (with its balanced,
+    possibly wrapped title arguments and a following `\label`) and `\end` own their lines,
+    within 200 lines, as an `env`
     construct (held at its `\begin` so constructs stay in document order; nested ones pair by
     name); latexLive draws those in the project's theorem map (`src/tex/theorems.ts`, pure, checked
     against the installed elegantbook.cls by `tests/theorems.test.ts`: amsthm's proof,
@@ -289,7 +290,14 @@
     counted, the labelled ones at their .aux numbers; otherwise no number (`\input`, single files,
     thmcnt=section, unsaved extra boxes). The `\end` line collapses (amsthm's proof: `□` at the right,
     `ll-qed-line` in styles.css outside the shared block). Each of the two lines reveals on its own;
-    the body is plain text, so typing keeps the box. Every `env` but a crop declares the live core's
+    the body is plain text, so typing keeps the box. A wrapped head reveals as a whole when any
+    of its rows is touched or has a diagnostic; math in its title still renders in place.
+    The theorem map follows literal `\ProvidesClass`/`\LoadClass` chains through already-read
+    local classes to a known template, including `\LoadClassWithOptions` and preceding literal
+    `\PassOptionsToClass`. Plain `\LoadClass` never implicitly forwards wrapper options.
+    Cycles, ambiguous class identities and multiple possible base classes do not guess a template.
+    Editing a class-loading/options line refreshes the map through the normal refs debounce.
+    Every `env` but a crop declares the live core's
     `reveals` (its `\begin` and `\end` lines: the memoized scan cannot see which ones the theorem map
     boxes), so a cursor move inside a long environment re-decorates only the constructs on the lines
     moved over (on a 3,192-line chapter with a 190-line box, 0.3-0.4 ms and 6 decorate calls instead

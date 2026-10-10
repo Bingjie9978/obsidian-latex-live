@@ -80,7 +80,7 @@ import { hoverError } from "./shared/renderHover";
 
 /** An edit touching such a line may change the bibliography, the reference names or the theorem map. */
 const REFS_LINE =
-  /\\(?:addbibresource|addglobalbib|addsectionbib|(?:no)?bibliography\s*\{|documentclass|[cC]refname|(?:elegant)?newtheorem|graphicspath|usepackage)|autorefname|cleveref/;
+  /\\(?:addbibresource|addglobalbib|addsectionbib|(?:no)?bibliography\s*\{|documentclass|ProvidesClass|LoadClass|PassOptionsToClass|RequirePackage|[cC]refname|(?:elegant)?newtheorem|graphicspath|usepackage)|autorefname|cleveref/;
 /** An edit touching such a line may change what the project defines. */
 const DEFINITION_LINE =
   /\\(?:(?:re|provide)?newcommand|[egx]?def|let|Declare|(?:New|Renew|Provide)DocumentCommand|(?:re)?newenvironment|input|include|usepackage|RequirePackage)/;

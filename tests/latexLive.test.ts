@@ -610,6 +610,46 @@ test("T-L8 keys stay keyArbiter's: arrows reveal collapsed lines one at a time; 
 const boxes = (view: EditorView) =>
   [...view.contentDOM.querySelectorAll<HTMLElement>(".lsp-lp-box")].map((b) => [b.className, b.style.getPropertyValue("--lp-box-color").trim()]);
 
+test("an inherited ElegantBook class paints wrapped theorem heads and reveals every title row", async () => {
+  const p = await project();
+  try {
+    writeFileSync(p.root, String.raw`\documentclass{local-notes}\begin{document}\end{document}`);
+    writeFileSync(join(p.book, "local-notes.cls"), String.raw`\ProvidesClass{local-notes}\LoadClass[lang=cn]{elegantbook}`);
+    p.render.opened(p.root);
+    await sleep(10);
+    const source = String.raw`\begin{definition}{Definition}
+Body.
+\end{definition}
+\begin{theorem}{Closure properties over
+countable intersections}
+Body.
+\end{theorem}
+end`;
+    const view = await p.mount(source);
+    assert.deepEqual(boxes(view), [["lsp-lp-box is-main", "rgb(0, 166, 82)"], ["lsp-lp-box is-second", "rgb(255, 134, 24)"]]);
+    assert.match(view.contentDOM.textContent!, /定理 \(Closure properties over countable intersections\)/);
+    assert.ok(!view.contentDOM.textContent!.includes("\\begin{theorem}"));
+    view.dispatch({ selection: { anchor: view.state.doc.line(5).from + 3 } });
+    assert.ok(view.contentDOM.textContent!.includes("\\begin{theorem}{Closure properties over"), "the second title row reveals the whole head");
+    assert.ok(view.contentDOM.textContent!.includes("countable intersections}"));
+    view.dispatch({ selection: { anchor: view.state.doc.line(6).from + 2 } });
+    assert.ok(!view.contentDOM.textContent!.includes("\\begin{theorem}"), "moving into the body restores the head");
+    showTexDiagnostics(view, [{ severity: "error", file: null, line: 5, message: "Invalid title." }]);
+    assert.ok(view.contentDOM.textContent!.includes("\\begin{theorem}"), "a diagnostic on the second row keeps source visible");
+    assert.equal(view.state.doc.toString(), source);
+    const math = await p.mount(String.raw`\begin{theorem}{For $x$ and
+$y$}
+Body.
+\end{theorem}
+end`);
+    assert.equal(boxes(math).length, 1);
+    assert.equal(math.contentDOM.querySelectorAll("mjx-container").length, 2, "wrapped title math still renders in place");
+    math.dispatch({ selection: { anchor: math.state.doc.line(2).from + 1 } });
+    assert.ok(math.contentDOM.textContent!.includes("\\begin{theorem}"));
+    assert.ok(math.contentDOM.textContent!.includes("$y$}"), "cursor on title math sees editable source");
+  } finally { p.done(); }
+});
+
 const BOOK_BOXES = [
   "\\begin{definition}{概率空间 Probability space}{prob-space}", // 1
   "  三元组 $(\\Omega, \\mathcal{F}, \\Prob)$。",

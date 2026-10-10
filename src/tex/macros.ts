@@ -106,7 +106,7 @@ export function scanDefinitions(text: string, into: Definitions = emptyDefinitio
   return into;
 }
 
-const PACKAGE_RE = /\\(usepackage|RequirePackage|documentclass|LoadClass)\s*(?:\[[^\]]*\])?\s*\{([^}]+)\}/g;
+const PACKAGE_RE = /\\(usepackage|RequirePackage|documentclass|LoadClass(?:WithOptions)?)\s*(?:\[[^\]]*\])?\s*\{([^}]+)\}/g;
 
 // ---- definition statements for MathJax (design 4.2) ------------------------------------------
 
@@ -510,7 +510,7 @@ export function projectDefinitions(root: string, buffers?: ReadonlyMap<string, s
     const exists = (path: string) => buffers?.has(path) || existsSync(path);
     const refs = contextualFileReferences(hit.src, rootDir, inputDirs, exists);
     for (const m of hit.src.matchAll(PACKAGE_RE)) {
-      const ext = m[1] === "documentclass" || m[1] === "LoadClass" ? ".cls" : ".sty";
+      const ext = m[1] === "documentclass" || m[1].startsWith("LoadClass") ? ".cls" : ".sty";
       for (const name of m[2].split(",")) {
         const local = inputDirs.map((dir) => join(dir, name.trim() + ext)).find(exists);
         if (name.trim() && local) refs.push({ at: m.index ?? 0, path: local, inputDirs: [...inputDirs], bodyOnly: false });

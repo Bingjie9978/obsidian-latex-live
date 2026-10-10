@@ -5,7 +5,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { resolveTexBinDir } from "../src/tex/binaries";
 import { projectDefinitions } from "../src/tex/macros";
@@ -18,6 +19,48 @@ const show = (m: TheoremMap, env: string) => {
   const d = m.get(env);
   return d ? [d.name, d.numbered ? "#" : "-", d.spec, d.title, d.punct, d.prefix ?? "", d.role ?? "", d.color ?? "", d.qed ?? ""].join("|") : null;
 };
+
+test("theoremMap follows a local class's ElegantBook inheritance and its own options", () => {
+  const cls = String.raw`\ProvidesClass{notes-native}
+\LoadClass[lang=cn,chinesefont=nofont]{elegantbook}
+\RequirePackage[scheme=plain]{ctex}`;
+  const wrapped = map(String.raw`\documentclass[lang=en,color=black]{../classes/notes-native}`, cls);
+  const direct = map(String.raw`\documentclass[lang=cn,chinesefont=nofont]{elegantbook}`);
+  assert.deepEqual([...wrapped], [...direct], "LoadClass doesn't implicitly forward the wrapper's options");
+  assert.equal(wrapped.get("definition")!.color, "rgb(0, 166, 82)");
+  assert.equal(wrapped.get("theorem")!.name, "定理");
+  assert.equal(map(String.raw`\documentclass{article}`, cls).get("theorem"), undefined, "an unrelated class file is not an inheritance link");
+  assert.equal(map(String.raw`\documentclass{missing}`, cls).get("definition"), undefined);
+});
+
+test("theoremMap honors literal forwarded class options and bounds inheritance cycles", () => {
+  const m = map(
+    String.raw`\PassOptionsToClass{color=black}{elegantbook}\documentclass[lang=cn]{outer}`,
+    String.raw`\ProvidesClass{outer}\LoadClassWithOptions{inner}`,
+    String.raw`\ProvidesClass{inner}\LoadClassWithOptions{elegantbook}`,
+  );
+  assert.equal(m.get("definition")!.name, "定义");
+  assert.equal(m.get("definition")!.color, map(String.raw`\documentclass[cn,black]{elegantbook}`).get("definition")!.color);
+  const localPass = map(String.raw`\documentclass{outer}`, String.raw`\ProvidesClass{outer}\PassOptionsToClass{lang=cn,color=green}{elegantbook}\LoadClass{elegantbook}`);
+  assert.deepEqual([...localPass], [...map(String.raw`\documentclass[lang=cn,color=green]{elegantbook}`)]);
+  const cycle = map(String.raw`\documentclass{a}`, String.raw`\ProvidesClass{a}\LoadClass{b}`, String.raw`\ProvidesClass{b}\LoadClass{a}`);
+  assert.equal(cycle.size, 0);
+  const conditional = map(String.raw`\documentclass{choice}`, String.raw`\ProvidesClass{choice}\iffoo\LoadClass{article}\else\LoadClass{elegantbook}\fi`);
+  assert.equal(conditional.size, 0, "multiple possible base classes stay unrecognized rather than guessing a branch");
+});
+
+test("local LoadClassWithOptions chains reach the live theorem map through projectDefinitions", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ll-inherited-class-"));
+  try {
+    const root = join(dir, "main.tex");
+    writeFileSync(root, String.raw`\documentclass[lang=cn,color=green]{./outer}\begin{document}\end{document}`);
+    writeFileSync(join(dir, "outer.cls"), String.raw`\ProvidesClass{outer}\LoadClassWithOptions{inner}`);
+    writeFileSync(join(dir, "inner.cls"), String.raw`\ProvidesClass{inner}\LoadClassWithOptions{elegantbook}`);
+    const files = projectDefinitions(root).files;
+    assert.ok(files.includes(join(dir, "inner.cls")));
+    assert.deepEqual([...theoremMap(files.map(file => stripComments(readFileSync(file, "utf8"))))], [...map(String.raw`\documentclass[lang=cn,color=green]{elegantbook}`)]);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
 
 test("theoremMap: \\newtheorem numbered (shared counter, within) and starred; amsthm's proof and period", () => {
   const m = map(
