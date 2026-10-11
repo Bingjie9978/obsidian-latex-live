@@ -43,6 +43,11 @@ The bridge copies the static dependency closure into a disposable project and
 uses the exporter's actual visits for marker coverage, including `includeonly`,
 imports and subfiles. `project_root` bounds original inputs and resources;
 needed images, local styles, bibliography and listings are copied on demand.
+Local class/package declarations and option targets are rewritten to the copied
+paths, including inherited `\LoadClass`/`\RequirePackage` dependencies. The
+staged parser and TeX compiler therefore read the same local definitions;
+distribution packages keep their installed search paths. Dynamic declarations
+and local dependencies outside `project_root` fail explicitly.
 Do not copy an entire vault, edit original sources, infer IDs from rendered
 HTML, or add a second renderer. Runtime outputs and compiler work are temporary.
 SIGINT/SIGTERM abort the export and dispose its compiler process groups.

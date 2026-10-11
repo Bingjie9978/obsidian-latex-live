@@ -114,6 +114,66 @@ test("notes wrapper can read absolute repository inputs within project_root", { 
   } finally { await rm(folder, { recursive: true, force: true }); }
 });
 
+test("shared local classes and styles retain inherited theorem titles after staging", { skip: !tex, timeout: 90_000 }, async () => {
+  const folder = await mkdtemp(join(tmpdir(), "latex-live-bridge-class-test-"));
+  try {
+    const course = join(folder, "course");
+    const templates = join(folder, "templates");
+    await mkdir(course);
+    await mkdir(templates);
+    const files = new Map([
+      [join(course, "main.tex"), String.raw`\documentclass{../templates/customnotes}
+\usepackage{../templates/names,amsmath}
+\begin{document}
+\kn{Term}: \CourseTerm. Math: $x^2$.
+\begin{definition}[\knref{Term}]
+The named definition.
+\end{definition}
+\end{document}`],
+      [join(templates, "customnotes.cls"), String.raw`\ProvidesClass{customnotes}
+\LoadClass[11pt]{../templates/base}
+\RequirePackage{amsthm}
+\newtheorem{definition}{Definition}`],
+      [join(templates, "base.cls"), String.raw`\ProvidesClass{base}
+\LoadClassWithOptions{article}`],
+      [join(templates, "names.sty"), String.raw`\ProvidesPackage{names}
+\newcommand{\CourseTerm}{From shared style}`],
+    ]);
+    for (const [path, text] of files) await writeFile(path, text);
+    const result = await kgdistillerHtml({ schema, operation: "document", source: join(course, "main.tex"), project_root: folder,
+      markers: [{ name: "Term", id: "term", url: "#kn-term" }] });
+    if (result.operation !== "document") throw new Error("Expected document");
+    const dom = new JSDOM(result.html);
+    assert.equal(dom.window.document.querySelectorAll('.llx-definition a[data-ql-ref="term"]').length, 1);
+    assert.equal(dom.window.document.querySelectorAll('[id="kn-term"]').length, 1);
+    assert.match(dom.window.document.body.textContent ?? "", /From shared style/);
+    assert.match(result.html, /<mjx-container/);
+    assert.doesNotMatch(result.html, /kgdistiller\.invalid|kgd-kn-/);
+    assert.deepEqual(result.report.items.filter((item) => item.severity !== "info"), []);
+    for (const [path, text] of files) assert.equal(await readFile(path, "utf8"), text);
+    assert.deepEqual(await readdir(course), ["main.tex"]);
+    assert.deepEqual((await readdir(templates)).sort(), ["base.cls", "customnotes.cls", "names.sty"]);
+    dom.window.close();
+  } finally { await rm(folder, { recursive: true, force: true }); }
+});
+
+test("local document classes outside project_root reject without modifying the originals", async () => {
+  const folder = await mkdtemp(join(tmpdir(), "latex-live-bridge-class-boundary-test-"));
+  try {
+    const course = join(folder, "course");
+    await mkdir(course);
+    const source = join(course, "main.tex");
+    const localClass = join(folder, "outside.cls");
+    const text = "\\documentclass{../outside}\n\\begin{document}Body.\\end{document}\n";
+    const classText = "\\ProvidesClass{outside}\n\\LoadClass{article}\n";
+    await writeFile(source, text);
+    await writeFile(localClass, classText);
+    await assert.rejects(kgdistillerHtml({ schema, operation: "document", source, project_root: course, markers: [] }), /outside project_root/);
+    assert.equal(await readFile(source, "utf8"), text);
+    assert.equal(await readFile(localClass, "utf8"), classText);
+  } finally { await rm(folder, { recursive: true, force: true }); }
+});
+
 test("nested import and subimport preserve their resolved directory context", { skip: !tex, timeout: 90_000 }, async () => {
   const folder = await mkdtemp(join(tmpdir(), "latex-live-bridge-import-test-"));
   try {

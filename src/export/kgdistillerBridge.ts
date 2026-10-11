@@ -220,6 +220,8 @@ async function exportDocument(request: Extract<KgdistillerRequest, { operation: 
     };
     const inputs = new Set(["input", "include", "subfile", "subfileinclude", "import", "inputfrom", "includefrom", "subimport", "subinputfrom", "subincludefrom"]);
     const imports = /^(?:sub)?(?:import|inputfrom|includefrom)$/;
+    const classCommands = new Set(["documentclass", "LoadClass", "LoadClassWithOptions", "PassOptionsToClass"]);
+    const packageCommands = new Set(["usepackage", "RequirePackage", "RequirePackageWithOptions", "PassOptionsToPackage"]);
     const visit = async (path: string, dirs: readonly string[], depth = 0): Promise<void> => {
       if (depth > 64 || checked.size > 512) throw new Error("Project input closure exceeds the bridge limit.");
       const target = await staged(path);
@@ -250,6 +252,27 @@ async function exportDocument(request: Extract<KgdistillerRequest, { operation: 
             if (node.name.startsWith("sub")) editPath(target.original, node.from, node.from + node.name.length + 1, `\\${node.name.slice(3)}`);
           } else editPath(target.original, nameArg.from, nameArg.to, `{${copy}}`);
           await visit(child.original, ref.inputDirs, depth + 1);
+        } else if (classCommands.has(node.name) || packageCommands.has(node.name)) {
+          const arg = node.args[node.name.endsWith("WithOptions") ? 0 : 1];
+          const suffix = classCommands.has(node.name) ? ".cls" : ".sty";
+          const names = argText(text, arg).split(",").map((name) => name.trim());
+          const copied: string[] = [];
+          for (const name of names) {
+            const literal = literalTexPath(name);
+            if (!literal) throw new Error(`A dynamic class or package cannot be staged: ${name}`);
+            const filename = literal.endsWith(suffix) ? literal : literal + suffix;
+            let local: string | null = null;
+            for (const dir of dirs) {
+              const candidate = resolve(dir, filename);
+              if (await existing(candidate)) { local = candidate; break; }
+            }
+            // Distribution packages stay on the TeX installation's search path.
+            if (!local) { copied.push(name); continue; }
+            const dependency = await staged(local);
+            copied.push(slash(relative(project, dependency.copy)).slice(0, -suffix.length));
+            await visit(dependency.original, dirs, depth + 1);
+          }
+          editPath(target.original, arg.from, arg.to, `{${copied.join(",")}}`);
         } else if (node.name === "includeonly") {
           const arg = node.args[0];
           includeSelections.push({ file: target.original, from: arg.from, to: arg.to, names: argText(text, arg).split(",").map((name) => name.trim()) });
