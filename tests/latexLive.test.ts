@@ -760,9 +760,9 @@ test("T-L9 #12: elegantbook's boxes with their heads as the PDF prints them, num
     assert.deepEqual(boxes(view), [
       ["lsp-lp-box is-main", "rgb(0, 166, 82)"],
       ["lsp-lp-box is-second", "rgb(255, 134, 24)"],
-      ["lsp-lp-box is-second", "rgb(255, 134, 24)"],
+      ["lsp-lp-box is-second ll-corner-frame", "rgb(255, 134, 24)"],
       ["lsp-lp-box is-third", "rgb(0, 174, 247)"],
-      ["lsp-lp-box is-main", "rgb(0, 166, 82)"],
+      ["lsp-lp-box is-main ll-corner-frame", "rgb(0, 166, 82)"],
       ["lsp-lp-box is-second", "rgb(255, 134, 24)"],
       ["lsp-lp-box is-second", "rgb(255, 134, 24)"],
     ]);
@@ -1032,6 +1032,30 @@ test("T-L9 arguments a box does not take stay in place as text (elegantbook's pr
   } finally {
     p.done();
   }
+});
+
+test("ElegantBook proof/example use corner frames while native heads, math and other templates remain intact", async () => {
+  const p = await project();
+  try {
+    const doc = ["\\begin{theorem}{Statement}{}", "Statement.", "\\end{theorem}",
+      "\\begin{proof}", "Proof with $x$.", "\\end{proof}",
+      "\\begin{example}[A case]", "Example with $y$.", "\\end{example}", "end"].join("\n");
+    const view = await p.mount(doc);
+    const boxes = [...view.contentDOM.querySelectorAll(".lsp-lp-box")];
+    assert.equal(boxes.length, 3);
+    assert.ok(!boxes[0].classList.contains("ll-corner-frame"));
+    assert.equal(boxes[1].querySelector(".lsp-lp-box-title")!.textContent, "证明");
+    assert.equal(boxes[2].querySelector(".lsp-lp-box-title")!.textContent, "例题 A case");
+    for (const box of boxes.slice(1)) {
+      assert.ok(box.classList.contains("ll-corner-frame"));
+      assert.ok(box.querySelector("mjx-container"), "body math still renders in place");
+    }
+    const sources = ["\\documentclass{article}\n\\usepackage{amsthm}"];
+    const amsthm: LatexRefs = { numbers: new Map(), labels: new Map(), cites: new Map(), names: refNames(sources), theorems: theoremMap(sources), checkpoints: new Map() };
+    const article = await p.mount("\\begin{proof}\nPlain proof.\n\\end{proof}\nend", amsthm);
+    assert.equal(article.contentDOM.querySelectorAll(".ll-corner-frame").length, 0);
+    assert.ok(shown(article).some(line => line.includes("□")), "amsthm QED remains native");
+  } finally { p.done(); }
 });
 
 test("T-L9 #8 and #13: figure and table lines collapse; \\includegraphics shows the image, a PDF's first page, or keeps its source", async () => {

@@ -302,7 +302,11 @@
     counted, the labelled ones at their .aux numbers; otherwise no number (`\input`, single files,
     thmcnt=section, unsaved extra boxes). The `\end` line collapses (amsthm's proof: `□` at the right,
     `ll-qed-line` in styles.css outside the shared block). Each of the two lines reveals on its own;
-    the body is plain text, so typing keeps the box. A wrapped head reveals as a whole when any
+    the body is plain text, so typing keeps the box. ElegantBook's built-in proof and example
+    heads carry `elegantHead`; only the live renderer uses it to add `ll-corner-frame`, whose
+    opposing solid corners and transparent body live outside the shared CSS block. Keep its
+    border dimensions, zero padding, template colors and pointer-transparent pseudo-elements.
+    A wrapped head reveals as a whole when any
     of its rows is touched or has a diagnostic; math in its title still renders in place.
     The theorem map follows literal `\ProvidesClass`/`\LoadClass` chains through already-read
     local classes to a known template, including `\LoadClassWithOptions` and preceding literal

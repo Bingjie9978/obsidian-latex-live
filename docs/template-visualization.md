@@ -7,6 +7,10 @@
 **Save and use selected profile**，就会在这个项目的实时编辑视图中生效。选择
 **Automatic (original template)** 可恢复原模板的自动识别。源码模式保持源码显示。
 
+ElegantBook 内置的 `proof` 和 `example` 在可视化模式中使用左上、右下的实心色角框，
+内部透明；定义、定理等仍使用色块。角框颜色跟随模板配色或配置方案的颜色。
+继承 ElegantBook 的本地文档类也适用，标题参数和编号仍按实际模板读取。
+
 ## 配置方案
 
 **New profile** 创建独立方案。方案可以保存中文名称，供多个项目重复选择。

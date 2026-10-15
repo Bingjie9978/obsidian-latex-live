@@ -45,6 +45,8 @@ export type TheoremSpec = "tcb" | "tcb*" | "o" | "m" | "";
 export type TheoremTitle = "paren" | "after" | "replace" | "name";
 
 export interface TheoremDef {
+  /** Built-in ElegantBook prose head (distinct from its tcolorbox theorems). */
+  readonly elegantHead?: boolean;
   /** What the head prints before the number (`定理`, `Theorem`). */
   readonly name: string;
   /** A counter numbers the heads (the number comes from the head's .aux label). */
@@ -289,6 +291,7 @@ export function theoremMap(sources: readonly string[]): TheoremMap {
     for (const [env, role, counter, title] of ELEGANT_HEADS) {
       out.set(env, {
         ...base,
+        elegantHead: true,
         name: names[env] ?? "",
         numbered: counter !== null,
         counter,

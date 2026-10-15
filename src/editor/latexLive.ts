@@ -380,6 +380,7 @@ function decorateBox(c: LatexEnv, def: TheoremDef, ctx: LiveContext, refs: Latex
   const headLast = doc.lineAt(c.beginTo);
   const end = doc.lineAt(c.endFrom);
   const attributes: Record<string, string> = { class: def.role ? `lsp-lp-box is-${def.role}` : "lsp-lp-box" };
+  if (def.elegantHead && (c.env === "proof" || c.env === "example")) attributes.class += " ll-corner-frame";
   if (def.color) attributes.style = `--lp-box-color: ${def.color}`;
   ctx.wrap(begin.from, end.to, { tagName: "div", attributes });
 
