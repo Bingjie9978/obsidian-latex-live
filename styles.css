@@ -37,6 +37,10 @@ SOFTWARE.
   background: transparent;
   color: var(--text-normal);
 }
+/* CodeMirror outlines a focused editor; an Obsidian editor shows focus by its cursor. */
+.ll-editor-content .cm-editor.cm-focused {
+  outline: none;
+}
 .ll-editor-content .cm-editor .cm-scroller {
   font-family: var(--ll-editor-font-family, var(--font-monospace));
 }
