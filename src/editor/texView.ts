@@ -435,6 +435,8 @@ export class TexView extends TextFileView {
         if (!this.applyingExternal) this.onEdited();
       },
       onCursor: () => this.onCursorMoved(),
+      // Documents only, as the hover: `$` in package code is rarely math.
+      snippets: () => (DATA_EXTENSIONS.has(this.file?.extension ?? "") ? null : plugin.suiteSnippetConfig()),
       diagnostics: true,
       // The mode's content of livePreviewCompartment, also for HistoryCache.restore.
       live: this.mode === "live" ? (this.liveExtension() ?? []) : [],

@@ -146,6 +146,8 @@ texlab supplies completion and snippets. Tab moves through fields; Enter continu
 
 ![Command completion, snippet fields and environment continuation](./docs/assets/showcase/smart-writing.gif)
 
+With [LaTeX Suite](https://github.com/artisticat1/obsidian-latex-suite) enabled, its snippets also expand in LaTeX documents (`mk` for inline math, `@a` for `\alpha`, ...): its options, trigger key and tab stops, with math and text modes taken from this editor. Turn it off with the "LaTeX Suite snippets" setting.
+
 #### Read TeX graphics in the editor
 
 Supported TikZ and table blocks can display a crop of the actual compiled PDF. Keep the real TeX drawing beside the surrounding mathematics.
@@ -372,6 +374,8 @@ LaTeX 的命令和环境由文档类、宏包和项目自己的宏共同定义�
 texlab 提供命令补全与 snippet。Tab 在占位符间移动，Enter 续写环境和列表；统一的按键处理让补全、占位符与可选 AI 建议协同工作。
 
 ![命令补全、占位符与环境续写](./docs/assets/showcase/smart-writing-zh.gif)
+
+启用 [LaTeX Suite](https://github.com/artisticat1/obsidian-latex-suite) 时，它的 snippet 也在 LaTeX 文档里展开（`mk` 建行内公式、`@a` 变 `\alpha` 等），沿用其选项、触发键和占位符，数学与文本模式由本编辑器判断。可在设置 “LaTeX Suite snippets” 中关闭。
 
 #### 在编辑器里读 TeX 图形
 
