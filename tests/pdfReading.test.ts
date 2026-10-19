@@ -263,7 +263,12 @@ test("preview controls navigate pages and text double-click retains inverse Sync
   assert.equal(view.contentEl.querySelector<HTMLButtonElement>('button[aria-label="Save the last successful build as PDF"]')!.disabled, false);
   const text = view.contentEl.querySelector(".ll-pdf-text span")!;
   text.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, cancelable: true, clientX: 20, clientY: 30 })); await tick();
-  assert.equal(inverses.length, 1); assert.deepEqual(opened, [["/vault/main.tex", 3]]);
+  assert.equal(inverses.length, 1); assert.deepEqual(opened, [["/vault/main.tex", 3, 0, undefined]]);
+  // The word the double-click selected in the text layer goes along to place the cursor.
+  text.textContent = "distinctive,"; document.getSelection()!.selectAllChildren(text);
+  text.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, cancelable: true, clientX: 20, clientY: 30 })); await tick();
+  assert.deepEqual(opened[1], ["/vault/main.tex", 3, 0, "distinctive"]);
+  document.getSelection()!.removeAllRanges(); inverses.length = 1;
   const link = view.contentEl.querySelector(".ll-pdf-link")!;
   link.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, cancelable: true })); await tick();
   assert.equal(inverses.length, 1);

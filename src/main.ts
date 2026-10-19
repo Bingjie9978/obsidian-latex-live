@@ -545,8 +545,11 @@ export default class LatexLivePlugin extends Plugin {
     );
   }
 
-  /** Open a vault file in the LaTeX editor at a 1-based line. */
-  async openLocation(abs: string, line: number, column = 0): Promise<void> {
+  /**
+   * Open a vault file in the LaTeX editor at a 1-based line. `word`, the word double-clicked in
+   * the PDF, places the cursor on it near that line (TexView.revealLine).
+   */
+  async openLocation(abs: string, line: number, column = 0, word?: string): Promise<void> {
     const rel = this.vaultPath(abs);
     const file = rel ? this.app.vault.getAbstractFileByPath(rel) : null;
     if (!(file instanceof TFile)) return;
@@ -561,7 +564,7 @@ export default class LatexLivePlugin extends Plugin {
       leaf = this.editorLeaf();
       await leaf.openFile(file);
     }
-    if (leaf.view instanceof TexView) leaf.view.revealLine(line, column);
+    if (leaf.view instanceof TexView) leaf.view.revealLine(line, column, word);
   }
 
   private editorLeaf(): WorkspaceLeaf {

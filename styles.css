@@ -48,6 +48,19 @@ SOFTWARE.
 .ll-editor-content .cm-editor.ll-has-selection .cm-activeLine {
   background: transparent;
 }
+/* The line a jump (inverse SyncTeX) landed on, for FLASH_MS (src/editor/reveal.ts). */
+.ll-editor-content .cm-editor .cm-line.ll-reveal-flash {
+  animation: ll-reveal-flash 1.5s ease-out;
+}
+@keyframes ll-reveal-flash {
+  0%,
+  40% {
+    background-color: var(--text-highlight-bg, rgba(255, 208, 0, 0.4));
+  }
+  100% {
+    background-color: transparent;
+  }
+}
 .ll-editor-content .cm-editor .cm-selectionBackground,
 .ll-editor-content .cm-editor.cm-focused .cm-selectionBackground {
   background: var(--text-selection);

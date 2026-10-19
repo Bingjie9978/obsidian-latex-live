@@ -14,6 +14,7 @@ import type { PdfBox } from "../tex/synctex";
 import { PdfRenderer, type PdfReadingStatus } from "./pdfRenderer";
 import { savePdfSnapshot } from "./pdfReading";
 import { checkPluginStyles } from "../pluginStyles";
+import { wordOf } from "../editor/reveal";
 
 export const VIEW_TYPE_PREVIEW = "latex-live-preview";
 
@@ -266,8 +267,17 @@ export class LatexPreviewView extends ItemView {
     const s = this.session;
     if (!pt || !s) return;
     ev.preventDefault();
+    // The double-click selected a word in the text layer: read it before awaiting SyncTeX.
+    const word = this.clickedWord();
     const loc = await this.plugin.inverseSearch(s, pt.page, pt.x, pt.y);
-    if (loc) await this.plugin.openLocation(loc.file, loc.line);
+    if (loc) await this.plugin.openLocation(loc.file, loc.line, 0, word ?? undefined);
+  }
+
+  /** The word the double-click selected in the PDF's text layer, or null. */
+  private clickedWord(): string | null {
+    const scroll = this.renderer?.scrollEl, sel = scroll?.ownerDocument.getSelection();
+    if (!scroll || !sel || sel.isCollapsed || !sel.anchorNode || !scroll.contains(sel.anchorNode)) return null;
+    return wordOf(sel.toString());
   }
 
   private updateReading(status?: PdfReadingStatus): void {

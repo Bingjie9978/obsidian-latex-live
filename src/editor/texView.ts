@@ -21,6 +21,7 @@ import { includeName, preambleFiles } from "../tex/project";
 import { latexCompletionSource } from "./latexCompletion";
 import { applyEditorAppearance } from "./editorAppearance";
 import { latexFolding } from "./latexFolding";
+import { flashLine, locateWord } from "./reveal";
 import { proseSpelling } from "./proseTools";
 import { invalidateProjectOutline } from "./projectOutline";
 import { latexLiveLanguage } from "./latexLive";
@@ -280,17 +281,27 @@ export class TexView extends TextFileView {
     return { line: line.number, column: head - line.from };
   }
 
-  /** Move the cursor to a 1-based line, scroll it into view, and focus. */
-  revealLine(line: number, column = 0): void {
-    if (!this.editor) return;
-    const doc = this.editor.state.doc;
+  /**
+   * Move the cursor to a 1-based line, scroll it into view, flash the line, and focus. With
+   * `word` (the word double-clicked in the PDF), the cursor goes to that word on or near the line.
+   */
+  revealLine(line: number, column = 0, word?: string): void {
+    const editor = this.editor;
+    if (!editor) return;
+    const doc = editor.state.doc;
+    const found = word ? locateWord(doc, line, word) : null;
+    if (found) ({ line, column } = found);
     const target = doc.line(Math.min(Math.max(line, 1), doc.lines));
     const pos = target.from + Math.min(Math.max(column, 0), target.length);
-    this.editor.dispatch({
+    editor.dispatch({
       selection: { anchor: pos },
       effects: EditorView.scrollIntoView(pos, { y: "center" }),
     });
-    this.editor.focus();
+    flashLine(editor, pos);
+    editor.focus();
+    // The PDF pane can take focus back after its double-click settles.
+    const win = editor.dom.ownerDocument.defaultView ?? window;
+    win.requestAnimationFrame(() => { if (this.editor === editor && !editor.hasFocus) editor.focus(); });
   }
 
   /**
