@@ -26,11 +26,14 @@ SOFTWARE.
 .ll-editor-content {
   padding: 0;
   height: 100%;
+  font-size: var(--font-text-size, 16px);
 }
+/* Source code at the theme's code size (as Markdown code blocks): a monospace font at the
+   text size looks a size larger than the text. */
 .ll-editor-content .cm-editor {
   height: 100%;
   font-family: var(--ll-editor-font-family, var(--font-monospace));
-  font-size: var(--font-text-size, 16px);
+  font-size: var(--ll-editor-font-size, var(--code-size, 0.875em));
   background: transparent;
   color: var(--text-normal);
 }
@@ -698,7 +701,7 @@ SOFTWARE.
   min-height: 0;
   max-height: 40%;
   overflow: hidden;
-  background: var(--background-secondary);
+  background: var(--background-primary);
 }
 .ll-toolbar {
   position: static;
@@ -801,7 +804,7 @@ SOFTWARE.
   min-height: 0;
   min-width: 0;
   overflow: auto;
-  background: var(--background-secondary);
+  background: var(--background-primary);
 }
 .ll-empty {
   padding: 24px;
@@ -820,7 +823,8 @@ SOFTWARE.
   position: relative;
   flex: 0 0 auto;
   background: white;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  /* The pages sit on the note's background; a hairline marks the paper's edge. */
+  box-shadow: 0 0 0 1px var(--background-modifier-border);
 }
 .ll-page canvas {
   display: block;
