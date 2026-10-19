@@ -274,11 +274,11 @@ export class TexView extends TextFileView {
   }
 
   /** 1-based line and 0-based column of the main cursor. */
-  cursor(): { line: number; column: number } | null {
+  cursor(): { line: number; column: number; text: string } | null {
     if (!this.editor) return null;
     const head = this.editor.state.selection.main.head;
     const line = this.editor.state.doc.lineAt(head);
-    return { line: line.number, column: head - line.from };
+    return { line: line.number, column: head - line.from, text: line.text };
   }
 
   /**

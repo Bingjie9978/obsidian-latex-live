@@ -1,5 +1,6 @@
 import { loadPdfJs } from "obsidian";
 import type { PdfBox } from "../tex/synctex";
+import { PAGE_REACH, PageText, TextRun, placeLine } from "./syncText";
 import { abortError } from "../tex/run";
 import { externalPdfUrl, openPdfExternal } from "./pdfReading";
 
@@ -230,6 +231,10 @@ export class PdfRenderer {
   private pendingZoom: { scale: number; x: number; y: number } | null = null;
   private inFlight = 0;
   private lastStatus = "";
+  /** Text runs of pages forward search looked at, for the current document (docGen). */
+  private texts = new Map<number, Promise<TextRun[]>>();
+  private textsGen = -1;
+  private revealSeq = 0;
 
   constructor(parent: HTMLElement, private options: PdfReadingOptions = {}) {
     this.win = parent.ownerDocument.defaultView as Window & typeof globalThis;
@@ -358,7 +363,50 @@ export class PdfRenderer {
     return { page: idx + 1, x: (ev.clientX - rect.left) / this.scale, y: (ev.clientY - rect.top) / this.scale };
   }
 
-  reveal(box: PdfBox, onlyIfHidden: boolean): void {
+  /**
+   * Scroll to a forward SyncTeX box and mark it. With `words`, the words of the cursor's source
+   * line (lineWords), the box is first moved to where they are in the text of the pages around
+   * it (placeLine). A later reveal supersedes one still reading page text.
+   */
+  async reveal(box: PdfBox, onlyIfHidden: boolean, words?: string[]): Promise<void> {
+    const seq = ++this.revealSeq, gen = this.docGen;
+    if (words?.length && this.doc) {
+      const near: PageText[] = [];
+      for (let page = Math.max(1, box.page - PAGE_REACH); page <= Math.min(this.slots.length, box.page + PAGE_REACH); page++) {
+        near.push({ page, runs: await this.pageText(page).catch(() => []) });
+        if (seq !== this.revealSeq || gen !== this.docGen) return;
+      }
+      box = placeLine(near, words, box) ?? box;
+    }
+    this.mark(box, onlyIfHidden);
+  }
+
+  /** A page's text runs in points from its top-left corner, read once per document. */
+  private pageText(page: number): Promise<TextRun[]> {
+    if (this.textsGen !== this.docGen) { this.texts.clear(); this.textsGen = this.docGen; }
+    let text = this.texts.get(page);
+    if (!text) {
+      const doc = this.doc!;
+      text = (async () => {
+        const p = await doc.getPage(page);
+        const vp = p.getViewport({ scale: 1 });
+        const content = (await p.getTextContent?.()) as { items?: { str?: string; transform?: number[]; width?: number; height?: number }[] } | undefined;
+        const runs: TextRun[] = [];
+        for (const it of content?.items ?? []) {
+          if (!it.str?.trim() || !it.transform) continue;
+          const [, , , , e, f] = it.transform;
+          const [x, base] = vp.convertToViewportPoint?.(e, f) ?? [e, vp.height - f];
+          const height = it.height || Math.hypot(it.transform[2], it.transform[3]);
+          runs.push({ str: it.str, x, y: base - height, width: it.width ?? 0, height });
+        }
+        return runs;
+      })();
+      this.texts.set(page, text);
+    }
+    return text;
+  }
+
+  private mark(box: PdfBox, onlyIfHidden: boolean): void {
     const slot = this.slots[box.page - 1];
     if (!slot) return;
     const top = this.tops[box.page - 1] + box.y * this.scale;

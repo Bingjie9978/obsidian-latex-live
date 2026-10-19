@@ -76,13 +76,19 @@ interface Token {
 }
 
 const WORDS = /[\p{L}\p{N}]+/gu;
-// Command names, escaped characters and comments are not text in the PDF.
-const SOURCE_WORDS = /\\(?:[A-Za-z@]+|.)|%.*|([\p{L}\p{N}]+)/gu;
+// Command names, escaped characters and comments are not text in the PDF, nor the arguments of
+// commands that name things (environments, labels, keys, files).
+const SOURCE_WORDS = /\\(?:begin|end|label|[cC]?ref|eqref|autoref|pageref|cite[a-zA-Z]*|input|include|includegraphics|usepackage|documentclass|bibliography[a-zA-Z]*)\*?(?:\s*\[[^\]]*\])*\s*\{[^}]*\}|\\(?:[A-Za-z@]+|.)|%.*|([\p{L}\p{N}]+)/gu;
 
 function sourceTokens(src: string): Token[] {
   const out: Token[] = [];
   for (const m of src.matchAll(SOURCE_WORDS)) if (m[1]) out.push({ text: m[1], from: m.index! });
   return out;
+}
+
+/** The words of LaTeX source as they can appear in the PDF: command names and comments dropped. */
+export function sourceWords(src: string): string[] {
+  return sourceTokens(src).map((t) => t.text);
 }
 
 function pdfWords(text: string): string[] {

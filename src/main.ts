@@ -45,6 +45,7 @@ import { resolveTexBinDir, texEnv } from "./tex/binaries";
 import { TexDiagnostic } from "./tex/logParser";
 import { findRoot } from "./tex/project";
 import { forwardSearch, inverseSearch, SourceLocation } from "./tex/synctex";
+import { lineWords } from "./preview/syncText";
 
 const TEX_EXTENSIONS = ["tex", "sty", "cls", "ltx", "bib"];
 
@@ -521,9 +522,11 @@ export default class LatexLivePlugin extends Plugin {
       cur.column,
     );
     if (!box) return;
+    // The line's words correct SyncTeX's box in the PDF's text (syncText.ts).
+    const words = lineWords(cur.text);
     for (const leaf of this.previewLeaves()) {
       const pv = leaf.view as LatexPreviewView;
-      if (pv.root === root) pv.reveal(box, onlyIfHidden);
+      if (pv.root === root) pv.reveal(box, onlyIfHidden, words);
     }
   }
 

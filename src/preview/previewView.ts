@@ -159,8 +159,9 @@ export class LatexPreviewView extends ItemView {
     else if (!s.compiling) s.request("fast");
   }
 
-  reveal(box: PdfBox, onlyIfHidden: boolean): void {
-    this.renderer?.reveal(box, onlyIfHidden);
+  /** Forward SyncTeX's box; `words` (the cursor line's, lineWords) correct it (PdfRenderer.reveal). */
+  reveal(box: PdfBox, onlyIfHidden: boolean, words?: string[]): void {
+    void this.renderer?.reveal(box, onlyIfHidden, words);
   }
 
   applyTheme(): void {
