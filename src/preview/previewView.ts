@@ -14,7 +14,10 @@ import type { PdfBox } from "../tex/synctex";
 import { PdfRenderer, type PdfReadingStatus } from "./pdfRenderer";
 import { savePdfSnapshot } from "./pdfReading";
 import { checkPluginStyles } from "../pluginStyles";
-import { wordOf } from "../editor/reveal";
+import { ClickText, wordOf } from "../editor/reveal";
+
+/** Characters of PDF text on each side of a double-clicked word sent along to place the cursor. */
+const CLICK_CONTEXT = 200;
 
 export const VIEW_TYPE_PREVIEW = "latex-live-preview";
 
@@ -268,16 +271,34 @@ export class LatexPreviewView extends ItemView {
     if (!pt || !s) return;
     ev.preventDefault();
     // The double-click selected a word in the text layer: read it before awaiting SyncTeX.
-    const word = this.clickedWord();
+    const click = this.clickedText();
     const loc = await this.plugin.inverseSearch(s, pt.page, pt.x, pt.y);
-    if (loc) await this.plugin.openLocation(loc.file, loc.line, 0, word ?? undefined);
+    if (loc) await this.plugin.openLocation(loc.file, loc.line, 0, click ?? undefined);
   }
 
-  /** The word the double-click selected in the PDF's text layer, or null. */
-  private clickedWord(): string | null {
+  /**
+   * The word the double-click selected in the PDF's text layer, with the page's text before and
+   * after it (CLICK_CONTEXT characters each way), or null. pdf.js puts each text run in its own
+   * span, with no space between runs, so the runs are joined with spaces.
+   */
+  private clickedText(): ClickText | null {
     const scroll = this.renderer?.scrollEl, sel = scroll?.ownerDocument.getSelection();
-    if (!scroll || !sel || sel.isCollapsed || !sel.anchorNode || !scroll.contains(sel.anchorNode)) return null;
-    return wordOf(sel.toString());
+    if (!scroll || !sel || sel.isCollapsed || !sel.rangeCount || !sel.anchorNode || !scroll.contains(sel.anchorNode)) return null;
+    const word = wordOf(sel.toString());
+    if (!word) return null;
+    const range = sel.getRangeAt(0);
+    const layer = range.startContainer.parentElement?.closest(".ll-pdf-text");
+    if (!layer) return { word, before: "", after: "" };
+    const doc = layer.ownerDocument;
+    const head = doc.createRange(), tail = doc.createRange();
+    head.setStart(layer, 0); head.setEnd(range.startContainer, range.startOffset);
+    tail.setStart(range.endContainer, range.endOffset); tail.setEnd(layer, layer.childNodes.length);
+    const text = (part: Range) => {
+      const box = doc.createElement("div");
+      box.append(part.cloneContents());
+      return [...box.querySelectorAll("span")].filter((el) => !el.querySelector("span")).map((el) => el.textContent ?? "").filter(Boolean).join(" ") || box.textContent || "";
+    };
+    return { word, before: text(head).slice(-CLICK_CONTEXT), after: text(tail).slice(0, CLICK_CONTEXT) };
   }
 
   private updateReading(status?: PdfReadingStatus): void {

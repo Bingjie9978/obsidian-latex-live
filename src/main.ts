@@ -17,6 +17,7 @@ import { HistoryCache, syncDarkTheme } from "./editor/shared/editorKit";
 import { isLive, renderStats } from "./editor/shared/livePreview";
 import { YoloBridge } from "./editor/shared/yoloBridge";
 import type { MathJaxLike } from "./editor/mathjaxProject";
+import type { ClickText } from "./editor/reveal";
 import { TexRender } from "./editor/texRender";
 import { parseTemplateProfiles, type TemplateVisualizationProfile } from "./editor/templateVisualization";
 import { TemplateVisualizationModal } from "./editor/templateVisualizationModal";
@@ -546,10 +547,10 @@ export default class LatexLivePlugin extends Plugin {
   }
 
   /**
-   * Open a vault file in the LaTeX editor at a 1-based line. `word`, the word double-clicked in
+   * Open a vault file in the LaTeX editor at a 1-based line. `click`, the word double-clicked in
    * the PDF, places the cursor on it near that line (TexView.revealLine).
    */
-  async openLocation(abs: string, line: number, column = 0, word?: string): Promise<void> {
+  async openLocation(abs: string, line: number, column = 0, click?: ClickText): Promise<void> {
     const rel = this.vaultPath(abs);
     const file = rel ? this.app.vault.getAbstractFileByPath(rel) : null;
     if (!(file instanceof TFile)) return;
@@ -564,7 +565,7 @@ export default class LatexLivePlugin extends Plugin {
       leaf = this.editorLeaf();
       await leaf.openFile(file);
     }
-    if (leaf.view instanceof TexView) leaf.view.revealLine(line, column, word);
+    if (leaf.view instanceof TexView) leaf.view.revealLine(line, column, click);
   }
 
   private editorLeaf(): WorkspaceLeaf {

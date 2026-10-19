@@ -21,7 +21,7 @@ import { includeName, preambleFiles } from "../tex/project";
 import { latexCompletionSource } from "./latexCompletion";
 import { applyEditorAppearance } from "./editorAppearance";
 import { latexFolding } from "./latexFolding";
-import { flashLine, locateWord } from "./reveal";
+import { ClickText, flashLine, locateClick } from "./reveal";
 import { proseSpelling } from "./proseTools";
 import { invalidateProjectOutline } from "./projectOutline";
 import { latexLiveLanguage } from "./latexLive";
@@ -283,13 +283,14 @@ export class TexView extends TextFileView {
 
   /**
    * Move the cursor to a 1-based line, scroll it into view, flash the line, and focus. With
-   * `word` (the word double-clicked in the PDF), the cursor goes to that word on or near the line.
+   * `click` (the word double-clicked in the PDF), the cursor goes to that word in the line's
+   * paragraph (locateClick).
    */
-  revealLine(line: number, column = 0, word?: string): void {
+  revealLine(line: number, column = 0, click?: ClickText): void {
     const editor = this.editor;
     if (!editor) return;
     const doc = editor.state.doc;
-    const found = word ? locateWord(doc, line, word) : null;
+    const found = click ? locateClick(doc, line, click) : null;
     if (found) ({ line, column } = found);
     const target = doc.line(Math.min(Math.max(line, 1), doc.lines));
     const pos = target.from + Math.min(Math.max(column, 0), target.length);

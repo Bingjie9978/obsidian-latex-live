@@ -4,14 +4,19 @@ import { Decoration, DecorationSet, EditorView } from "@codemirror/view";
 // Where a jump lands (inverse SyncTeX, problem list, outline) and the flash that shows it.
 //   Flash     the target line gets `ll-reveal-flash` for FLASH_MS: the cursor alone, at column 0
 //             of a long wrapped line or behind a rendered formula, is easy to miss.
-//   Word      SyncTeX answers with a line only. A double-click in the PDF selects a word in its
-//             text layer; that word places the column, and moves the line within the paragraph
-//             when SyncTeX's line does not contain it (SyncTeX records one line per box, often
-//             the paragraph's first or last).
+//   Click     SyncTeX answers with a line only, and inside a paragraph often the wrong one: TeX
+//             breaks a paragraph into lines after reading all of it, so its boxes carry the line
+//             of the paragraph's end (or start). A double-click in the PDF selects a word in its
+//             text layer; that word, matched in the source paragraph around SyncTeX's line and
+//             told apart from its other occurrences by the PDF words around it, places the cursor.
 
 export const FLASH_MS = 1500;
-/** How far from SyncTeX's line a word is looked for, never across a blank line. */
-const WORD_REACH = 8;
+/** How far from SyncTeX's line the paragraph is searched, never across a blank line. */
+const PARA_REACH = 40;
+/** PDF words on each side of the clicked one that tell its occurrences apart. */
+const CONTEXT_WORDS = 6;
+/** Source words on each side of an occurrence they are looked for in (macros add a few). */
+const SOURCE_WINDOW = 12;
 
 const flashEffect = StateEffect.define<number | null>({
   map: (pos, mapping) => (pos === null ? null : mapping.mapPos(pos)),
@@ -58,30 +63,65 @@ export function wordOf(selection: string): string | null {
   return word.length >= 2 || CJK.test(word) ? word : null;
 }
 
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+/** The double-clicked word and the PDF text before and after it on the page. */
+export interface ClickText {
+  word: string;
+  before: string;
+  after: string;
+}
+
+interface Token {
+  text: string;
+  from: number;
+}
+
+const WORDS = /[\p{L}\p{N}]+/gu;
+// Command names, escaped characters and comments are not text in the PDF.
+const SOURCE_WORDS = /\\(?:[A-Za-z@]+|.)|%.*|([\p{L}\p{N}]+)/gu;
+
+function sourceTokens(src: string): Token[] {
+  const out: Token[] = [];
+  for (const m of src.matchAll(SOURCE_WORDS)) if (m[1]) out.push({ text: m[1], from: m.index! });
+  return out;
+}
+
+function pdfWords(text: string): string[] {
+  return (text.normalize("NFKC").match(WORDS) ?? []).map((w) => w.toLowerCase());
 }
 
 /**
- * The 1-based line and 0-based column of `word` nearest SyncTeX's `line`: that line first, then
- * the lines around it (nearest first, below before above) up to a blank line. A whole-word match
- * anywhere wins over a part of a word (a word hyphenated across PDF lines). Null when absent.
+ * The 1-based line and 0-based column of the clicked word in the source paragraph holding
+ * SyncTeX's `line` (up to PARA_REACH lines either way, never across a blank line), or null when
+ * the word is not there. Occurrences are a whole word, else a part of one (a word hyphenated
+ * across PDF lines, CJK text); each scores the PDF words around the click found next to it in
+ * the source, and ties go to the one nearest SyncTeX's line.
  */
-export function locateWord(doc: Text, line: number, word: string): { line: number; column: number } | null {
+export function locateClick(doc: Text, line: number, click: ClickText): { line: number; column: number } | null {
   line = Math.min(Math.max(line, 1), doc.lines);
-  const order = [line];
-  let up = true, down = true;
-  for (let d = 1; d <= WORD_REACH && (up || down); d++) {
-    if (down && line + d <= doc.lines && doc.line(line + d).text.trim()) order.push(line + d); else down = false;
-    if (up && line - d >= 1 && doc.line(line - d).text.trim()) order.push(line - d); else up = false;
+  let first = line, last = line;
+  while (first > 1 && line - first < PARA_REACH && doc.line(first - 1).text.trim()) first--;
+  while (last < doc.lines && last - line < PARA_REACH && doc.line(last + 1).text.trim()) last++;
+  const start = doc.line(first).from;
+  const tokens = sourceTokens(doc.sliceString(start, doc.line(last).to));
+  let hits = tokens.flatMap((t, i) => (t.text === click.word ? [{ i, column: 0 }] : []));
+  if (!hits.length) {
+    hits = tokens.flatMap((t, i) => {
+      const at = t.text.indexOf(click.word);
+      return at < 0 ? [] : [{ i, column: at }];
+    });
   }
-  const w = escapeRegExp(word);
-  const patterns = CJK.test(word) ? [new RegExp(w, "u")] : [new RegExp(`(?<![\\p{L}\\p{N}])${w}(?![\\p{L}\\p{N}])`, "u"), new RegExp(w, "u")];
-  for (const re of patterns) {
-    for (const n of order) {
-      const m = re.exec(doc.line(n).text);
-      if (m) return { line: n, column: m.index };
-    }
+  if (!hits.length) return null;
+  const before = pdfWords(click.before).slice(-CONTEXT_WORDS);
+  const after = pdfWords(click.after).slice(0, CONTEXT_WORDS);
+  const near = (from: number, to: number) => new Set(tokens.slice(Math.max(from, 0), to).map((t) => t.text.toLowerCase()));
+  let best: { score: number; distance: number; pos: number } | null = null;
+  for (const { i, column } of hits) {
+    const left = near(i - SOURCE_WINDOW, i), right = near(i + 1, i + 1 + SOURCE_WINDOW);
+    const score = before.filter((w) => left.has(w)).length + after.filter((w) => right.has(w)).length;
+    const pos = start + tokens[i].from + column;
+    const distance = Math.abs(doc.lineAt(pos).number - line);
+    if (!best || score > best.score || (score === best.score && distance < best.distance)) best = { score, distance, pos };
   }
-  return null;
+  const at = doc.lineAt(best!.pos);
+  return { line: at.number, column: best!.pos - at.from };
 }
