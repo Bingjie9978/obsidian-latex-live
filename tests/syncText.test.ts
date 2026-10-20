@@ -47,3 +47,22 @@ test("placeLine: the line within a page, partial lines, nothing found", () => {
   assert.equal(placeLine(doc, lineWords("\\begin{itemize}"), box(1)), null);
   assert.equal(placeLine(doc, [], box(1)), null);
 });
+
+test("long source paragraphs match a bounded context around the cursor", () => {
+  const text = Array.from({ length: 1200 }, (_, i) => `word${i}`).join(" ");
+  const cursor = text.indexOf("word1150");
+  const context = lineWords(text, cursor);
+  assert.ok(context.includes("word1150"));
+  assert.ok(context.length <= 64);
+  const lines = Array.from({ length: 120 }, (_, row) =>
+    Array.from({ length: 10 }, (_, col) => `word${row * 10 + col}`).join(" "),
+  );
+  const result = placeLine([page(2, ...lines)], context, box(1));
+  assert.equal(result?.page, 2);
+  assert.ok(result!.y > 2000, "the correction stays near the cursor's end of the paragraph");
+});
+
+test("an excessively ambiguous page keeps SyncTeX instead of exhausting the matching budget", () => {
+  const repeated = Array<string>(64).fill("repeated");
+  assert.equal(placeLine([page(1, Array<string>(5000).fill("repeated").join(" "))], repeated, box(1)), null);
+});

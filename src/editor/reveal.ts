@@ -80,7 +80,7 @@ const WORDS = /[\p{L}\p{N}]+/gu;
 // commands that name things (environments, labels, keys, files).
 const SOURCE_WORDS = /\\(?:begin|end|label|[cC]?ref|eqref|autoref|pageref|cite[a-zA-Z]*|input|include|includegraphics|usepackage|documentclass|bibliography[a-zA-Z]*)\*?(?:\s*\[[^\]]*\])*\s*\{[^}]*\}|\\(?:[A-Za-z@]+|.)|%.*|([\p{L}\p{N}]+)/gu;
 
-function sourceTokens(src: string): Token[] {
+export function sourceTokens(src: string): Token[] {
   const out: Token[] = [];
   for (const m of src.matchAll(SOURCE_WORDS)) if (m[1]) out.push({ text: m[1], from: m.index! });
   return out;
@@ -92,7 +92,9 @@ export function sourceWords(src: string): string[] {
 }
 
 function pdfWords(text: string): string[] {
-  return (text.normalize("NFKC").match(WORDS) ?? []).map((w) => w.toLowerCase());
+  return (text.normalize("NFKC").match(WORDS) ?? []).flatMap((word) =>
+    word.match(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]|[^\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]+/gu) ?? [],
+  ).map((w) => w.toLowerCase());
 }
 
 /**
@@ -103,6 +105,7 @@ function pdfWords(text: string): string[] {
  * the source, and ties go to the one nearest SyncTeX's line.
  */
 export function locateClick(doc: Text, line: number, click: ClickText): { line: number; column: number } | null {
+  if (!click.word) return null;
   line = Math.min(Math.max(line, 1), doc.lines);
   let first = line, last = line;
   while (first > 1 && line - first < PARA_REACH && doc.line(first - 1).text.trim()) first--;
@@ -112,17 +115,27 @@ export function locateClick(doc: Text, line: number, click: ClickText): { line: 
   let hits = tokens.flatMap((t, i) => (t.text === click.word ? [{ i, column: 0 }] : []));
   if (!hits.length) {
     hits = tokens.flatMap((t, i) => {
-      const at = t.text.indexOf(click.word);
-      return at < 0 ? [] : [{ i, column: at }];
+      const matches: { i: number; column: number }[] = [];
+      for (let at = t.text.indexOf(click.word); at >= 0; at = t.text.indexOf(click.word, at + 1)) {
+        matches.push({ i, column: at });
+      }
+      return matches;
     });
   }
   if (!hits.length) return null;
   const before = pdfWords(click.before).slice(-CONTEXT_WORDS);
   const after = pdfWords(click.after).slice(0, CONTEXT_WORDS);
-  const near = (from: number, to: number) => new Set(tokens.slice(Math.max(from, 0), to).map((t) => t.text.toLowerCase()));
   let best: { score: number; distance: number; pos: number } | null = null;
   for (const { i, column } of hits) {
-    const left = near(i - SOURCE_WINDOW, i), right = near(i + 1, i + 1 + SOURCE_WINDOW);
+    // Include the current token's two sides: a Chinese sentence has no word separators.
+    const left = new Set(pdfWords([
+      ...tokens.slice(Math.max(0, i - SOURCE_WINDOW), i).map((t) => t.text),
+      tokens[i].text.slice(Math.max(0, column - 200), column),
+    ].join(" ").slice(-200)).slice(-SOURCE_WINDOW));
+    const right = new Set(pdfWords([
+      tokens[i].text.slice(column + click.word.length, column + click.word.length + 200),
+      ...tokens.slice(i + 1, i + 1 + SOURCE_WINDOW).map((t) => t.text),
+    ].join(" ").slice(0, 200)).slice(0, SOURCE_WINDOW));
     const score = before.filter((w) => left.has(w)).length + after.filter((w) => right.has(w)).length;
     const pos = start + tokens[i].from + column;
     const distance = Math.abs(doc.lineAt(pos).number - line);

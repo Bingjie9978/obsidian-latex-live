@@ -523,7 +523,7 @@ export default class LatexLivePlugin extends Plugin {
     );
     if (!box) return;
     // The line's words correct SyncTeX's box in the PDF's text (syncText.ts).
-    const words = lineWords(cur.text);
+    const words = lineWords(cur.text, cur.column);
     for (const leaf of this.previewLeaves()) {
       const pv = leaf.view as LatexPreviewView;
       if (pv.root === root) pv.reveal(box, onlyIfHidden, words);

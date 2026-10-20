@@ -27,6 +27,17 @@ test("wordOf keeps the longest letter run of a PDF selection, ligatures unfolded
 
 const only = (word: string) => ({ word, before: "", after: "" });
 
+test("locateClick distinguishes repeated Chinese words inside one source token", () => {
+  const text = "这里讨论连续函数和连续映射以及连续变化。";
+  const chinese = Text.of([text]);
+  assert.deepEqual(locateClick(chinese, 1, {
+    word: "连续", before: "这里讨论连续函数和", after: "映射以及连续变化。",
+  }), { line: 1, column: text.indexOf("连续映射") });
+  assert.deepEqual(locateClick(chinese, 1, {
+    word: "连续", before: "连续函数和连续映射以及", after: "变化。",
+  }), { line: 1, column: text.indexOf("连续变化") });
+});
+
 test("locateClick: SyncTeX's line first, then nearest lines within the paragraph", () => {
   assert.deepEqual(locateClick(doc, 4, only("distinctive")), { line: 4, column: 17 });
   // SyncTeX often names the paragraph's last line; the word is two lines up.

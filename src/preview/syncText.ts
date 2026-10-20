@@ -1,5 +1,5 @@
 import type { PdfBox } from "../tex/synctex";
-import { sourceWords } from "../editor/reveal";
+import { sourceTokens } from "../editor/reveal";
 
 // Forward SyncTeX, corrected by the PDF's text. `synctex view` names the boxes of a source line,
 // and the preview takes the first. In a paragraph that box can sit a line off (TeX breaks the
@@ -12,6 +12,9 @@ import { sourceWords } from "../editor/reveal";
 export const PAGE_REACH = 2;
 /** PDF words a source line may skip or gain (hyphenation, macros' own words). */
 const SLACK = 4;
+const MAX_SOURCE_WORDS = 64;
+/** Total LCS cells per reveal; exhausting the budget keeps the native SyncTeX result. */
+const MATCH_BUDGET = 2_000_000;
 
 /** A run of PDF text, in points from the page's top-left corner. */
 export interface TextRun {
@@ -43,9 +46,17 @@ function words(text: string): string[] {
     .filter((w) => CJK.test(w) || (w.length >= 3 && /\p{L}/u.test(w)));
 }
 
-/** The words of a source line for matching (sourceWords, lower-cased, CJK split). */
-export function lineWords(line: string): string[] {
-  return sourceWords(line).flatMap(words);
+/** A bounded source context around the cursor, lower-cased with CJK split. */
+export function lineWords(line: string, column = 0): string[] {
+  const tokens = sourceTokens(line).flatMap((token) =>
+    [...token.text.matchAll(PIECE)].flatMap((part) =>
+      words(part[0]).map((word) => ({ word, from: token.from + part.index })),
+    ),
+  );
+  const next = tokens.findIndex((token) => token.from >= column);
+  const center = next < 0 ? tokens.length : next;
+  const start = Math.max(0, Math.min(tokens.length - MAX_SOURCE_WORDS, center - MAX_SOURCE_WORDS / 2));
+  return tokens.slice(start, start + MAX_SOURCE_WORDS).map((token) => token.word);
 }
 
 /** Matched pairs of the longest common subsequence of `a` and `b`, as indexes into `b`. */
@@ -72,17 +83,21 @@ function common(a: string[], b: string[]): number[] {
  * distance (beamer's error is the page before). The box covers the PDF runs of the matched words.
  */
 export function placeLine(pages: PageText[], line: string[], box: PdfBox): PdfBox | null {
-  if (!line.length) return null;
+  if (!line.length || line.length > MAX_SOURCE_WORDS) return null;
   const need = Math.max(Math.min(2, line.length), Math.ceil(line.length / 2));
   const set = new Set(line);
   let best: { score: number; rank: number; box: PdfBox } | null = null;
+  let remaining = MATCH_BUDGET;
   for (const { page, runs } of pages) {
     const toks: { w: string; run: number }[] = [];
     runs.forEach((r, run) => { for (const w of words(r.str)) toks.push({ w, run }); });
     const all = toks.map((t) => t.w);
     for (let i = 0; i < toks.length; i++) {
       if (!set.has(all[i])) continue;
-      const hit = common(line, all.slice(i, i + line.length + SLACK)).map((j) => i + j);
+      const end = Math.min(all.length, i + line.length + SLACK);
+      remaining -= line.length * (end - i);
+      if (remaining < 0) return null;
+      const hit = common(line, all.slice(i, end)).map((j) => i + j);
       if (hit.length < need) continue;
       const used = [...new Set(hit.map((j) => toks[j].run))].map((r) => runs[r]);
       const x = Math.min(...used.map((r) => r.x)), y = Math.min(...used.map((r) => r.y));
