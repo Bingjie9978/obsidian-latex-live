@@ -28,6 +28,7 @@ import { latexEnterHooks, latexIndent } from "./latexEnter";
 import { latexHighlightPlugin } from "./latexHighlight";
 import { revealFlash } from "./reveal";
 import { LatexBlock, LatexMath, mathAt } from "./latexScan";
+import { SuiteConfigSource, suiteSnippets, suiteTabFallback } from "./suiteSnippets";
 import {
   CLOSE_BEFORE,
   darkThemeExtension,
@@ -71,6 +72,8 @@ export interface TexEditorOptions {
    * `liveInput()` next to it), so the mode toggle is one reconfiguration.
    */
   live?: Extension;
+  /** LaTeX Suite's snippets (its settings, read at every key; null: off). */
+  snippets?: SuiteConfigSource;
   /** More extensions and key bindings (F12), before the default keymap. */
   extensions?: Extension[];
   keys?: KeyBinding[];
@@ -82,9 +85,17 @@ export interface TexEditorOptions {
  * Kept free of the obsidian module so tests build the same stack.
  */
 export function texEditorExtensions(o: TexEditorOptions): Extension[] {
+  // LaTeX Suite's Tab trigger: where the Tab would indent (keyArbiter's fallback and T5).
+  const tab = o.snippets ? suiteTabFallback(o.snippets, indentOrInsertTab) : indentOrInsertTab;
   return [
-    keyArbiter({ inline: o.inline, enter: latexEnterHooks, tabFallback: indentOrInsertTab, completesWord: typingCommand }),
+    keyArbiter({
+      inline: o.inline,
+      enter: latexEnterHooks,
+      tabFallback: tab,
+      completesWord: typingCommand,
+    }),
     o.yolo ?? [],
+    o.snippets ? suiteSnippets(o.snippets) : [],
     EditorState.allowMultipleSelections.of(true),
     // drawSelection paints behind the text. An opaque active-line background must not
     // hide the selected part of the line containing a range's head.
@@ -130,7 +141,7 @@ export function texEditorExtensions(o: TexEditorOptions): Extension[] {
       ...searchKeymap,
       ...historyKeymap,
       ...(o.keys ?? []),
-      indentTabBinding,
+      { ...indentTabBinding, run: tab },
     ]),
   ];
 }

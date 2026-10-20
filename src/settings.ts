@@ -37,6 +37,8 @@ export interface LatexLiveSettings {
   texFragmentFallback: boolean;
   /** Show the rendering of the formula at the cursor below it while it is typed. */
   cursorPreview: boolean;
+  /** Expand LaTeX Suite's snippets (when that plugin is enabled) in LaTeX documents. */
+  latexSuiteSnippets: boolean;
   /** The mode of newly opened LaTeX editors; each view keeps its own in its view state. */
   editingMode: EditingMode;
   /** Editor typography: zero/empty follows the Obsidian theme. */
@@ -64,6 +66,7 @@ export const DEFAULT_SETTINGS: LatexLiveSettings = {
   hoverRender: true,
   texFragmentFallback: true,
   cursorPreview: false,
+  latexSuiteSnippets: true,
   editingMode: "source",
   editorFontSize: 0,
   editorLineHeight: 0,
@@ -304,6 +307,20 @@ export class LatexLiveSettingTab extends PluginSettingTab {
       .addToggle((t) =>
         t.setValue(s.cursorPreview).onChange((v) => {
           s.cursorPreview = v;
+          save();
+        }),
+      );
+
+    new Setting(containerEl)
+      .setName("LaTeX Suite snippets")
+      .setDesc(
+        "Expand the snippets of the LaTeX Suite plugin (when it is enabled) in LaTeX documents, " +
+          "with its options, trigger key and tab stops; math and text modes come from this " +
+          "editor. Snippets that use context functions or included macros are skipped.",
+      )
+      .addToggle((t) =>
+        t.setValue(s.latexSuiteSnippets).onChange((v) => {
+          s.latexSuiteSnippets = v;
           save();
         }),
       );

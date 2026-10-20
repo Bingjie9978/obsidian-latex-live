@@ -129,6 +129,10 @@
   Obsidian's own debounced one) while a composition is open, so uncommitted Pinyin is
   never written or compiled. `TexView` keeps a CRLF file CRLF (CodeMirror holds LF;
   `getViewData` converts back), so opening a file and switching away never rewrites it.
+- Optional LaTeX Suite snippets use `latexScan.literalAt` before deciding text/math mode.
+  Literal environments, inline verbatim, comments and unfinished code must preserve typed
+  text; insertion just outside their boundaries remains ordinary editing. Reuse the scanner's
+  verbatim/conditional rules and keep the code-context cases in suiteSnippets tests.
 - `src/editor/shared/` is shared with obsidian-tinymist and must stay
   byte-identical; the canonical copy lives in
   `obsidian-tinymist/src/editor/shared`. Never edit the copies here: change the

@@ -17,6 +17,7 @@ import { HistoryCache, syncDarkTheme } from "./editor/shared/editorKit";
 import { isLive, renderStats } from "./editor/shared/livePreview";
 import { YoloBridge } from "./editor/shared/yoloBridge";
 import type { MathJaxLike } from "./editor/mathjaxProject";
+import type { SuiteConfig } from "./editor/suiteSnippets";
 import type { ClickText } from "./editor/reveal";
 import { TexRender } from "./editor/texRender";
 import { parseTemplateProfiles, type TemplateVisualizationProfile } from "./editor/templateVisualization";
@@ -547,6 +548,27 @@ export default class LatexLivePlugin extends Plugin {
       s.compiler.rootDir,
       s.compiler.toLogical,
     );
+  }
+
+  /**
+   * LaTeX Suite's snippets and their settings, from its `CMSettings` (rebuilt by LaTeX Suite when
+   * its settings or snippet files change), or null when the setting is off or the plugin is not
+   * enabled. Read at every key.
+   */
+  suiteSnippetConfig(): SuiteConfig | null {
+    if (!this.settings.latexSuiteSnippets) return null;
+    const plugins = (this.app as unknown as { plugins?: { plugins?: Record<string, unknown> } }).plugins?.plugins;
+    const cm = (plugins?.["obsidian-latex-suite"] as { CMSettings?: Record<string, any> } | undefined)?.CMSettings;
+    if (!cm || !cm.snippetsEnabled || !Array.isArray(cm.snippets?.all)) return null;
+    return {
+      snippets: cm.snippets.all,
+      trigger: String(cm.snippetsTrigger ?? "Tab"),
+      wordDelimiters: String(cm.wordDelimiters ?? ""),
+      removeWhitespace: !!cm.removeSnippetWhitespace,
+      suppressOnIME: cm.suppressSnippetTriggerOnIME !== false,
+      recursion: Number(cm.snippetRecursion) || 0,
+      textMacros: Array.isArray(cm.mathlessMacros?.all) ? cm.mathlessMacros.all : [],
+    };
   }
 
   /**
