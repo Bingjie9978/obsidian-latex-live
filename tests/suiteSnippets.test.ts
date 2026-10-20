@@ -252,6 +252,33 @@ test("a Tab trigger expands through keyArbiter's tabFallback, else indents", () 
   done();
 });
 
+test("snippets preserve verbatim environments, inline code and skipped comments", () => {
+  const sources = [
+    "\\begin{verbatim}\n|\n\\end{verbatim}",
+    "\\begin{lstlisting}\n|\n\\end{lstlisting}",
+    "\\begin{minted}{latex}\n|\n\\end{minted}",
+    "\\begin{verbatim}\n|",
+    "\\verb!|!",
+    "\\lstinline[language=TeX]{|}",
+    "\\mintinline{latex}!|!",
+    "\\mintinline[fontsize=\\small]{latex}!|!",
+    "\\iffalse\n|\n\\fi",
+    "\\begin{comment}\n|\n\\end{comment}",
+  ];
+  for (const source of sources) {
+    const { view, done } = setup(source);
+    const at = source.indexOf("|");
+    const expected = source.slice(0, at) + "mk|" + source.slice(at + 1);
+    try { type(view, "mk"); assert.equal(shown(view), expected, source); }
+    finally { done(); }
+  }
+  for (const source of ["\\verb!example!|", "\\mintinline[fontsize=\\small]{latex}!example!|", "Here |% comment"]) {
+    const outside = setup(source);
+    try { type(outside.view, "mk"); assert.equal(shown(outside.view), source.replace("|", "$|$")); }
+    finally { outside.done(); }
+  }
+});
+
 test("snippetTemplate: order, linked stops, escapes", () => {
   assert.equal(snippetTemplate("\\frac{}{}", [{ index: [1], from: 8, to: 8 }, { index: [0], from: 6, to: 6 }]), "\\frac{${1}}{${2}}");
   assert.equal(snippetTemplate("x", []), "x${1}");

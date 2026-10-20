@@ -92,7 +92,7 @@ export class LatexLiveSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName("Editor appearance").setHeading();
     new Setting(containerEl)
       .setName("Editor font size (px)")
-      .setDesc("10–40 px. Leave empty to follow Obsidian. Applies immediately to open LaTeX editors.")
+      .setDesc("10–40 px. Leave empty to follow Obsidian's code size. Applies immediately to open LaTeX editors.")
       .addText(t => t.setPlaceholder("Follow Obsidian").setValue(s.editorFontSize ? String(s.editorFontSize) : "").onChange(v => {
         const text = v.trim(), n = text ? Number(text) : 0;
         if (!text || (Number.isFinite(n) && n >= 10 && n <= 40)) { s.editorFontSize = n; save(); }

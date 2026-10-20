@@ -17,7 +17,7 @@ export interface TheoremGraphHoverOptions {
 
 /** Obsidian panes clip fixed children, so use CM's supported external tooltip parent. */
 const portals = new WeakMap<EditorView, TooltipPortal>();
-const APPEARANCE_VARS = ["--font-text-size", "--line-height-normal", "--ll-editor-font-family", "--ll-math-preview-scale", "--ll-editor-math-font-size"];
+const APPEARANCE_VARS = ["--font-text-size", "--ll-editor-font-size", "--line-height-normal", "--ll-editor-font-family", "--ll-math-preview-scale", "--ll-editor-math-font-size"];
 export function refreshLatexTooltipAppearance(view: EditorView): void { portals.get(view)?.syncAppearance(); }
 
 export function latexTooltipPortal(): Extension {

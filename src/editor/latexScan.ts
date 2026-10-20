@@ -388,21 +388,72 @@ const ENV_ARG = /\s*\{([^{}\n]*)\}/y;
 const LABEL = /[ \t]*\\label\s*\{([^{}\n]*)\}/y;
 
 /** Index after inline verbatim (`\verb|..|`, `\lstinline{..}`) whose argument starts at s[i]. */
-function skipVerbatim(s: string, i: number, name: string): number {
+function skipVerbatim(s: string, i: number, name: string, includeOpenEnd = false): number {
+  if ((name === "mintinline" || name === "lstinline") && s[i] === "[") {
+    const e = s.indexOf("]", i);
+    if (e > 0) i = e + 1;
+  }
   if (name === "mintinline") {
     ENV_ARG.lastIndex = i;
     if (ENV_ARG.exec(s)) i = ENV_ARG.lastIndex;
-  } else if (name === "lstinline" && s[i] === "[") {
-    const e = s.indexOf("]", i);
-    if (e > 0) i = e + 1;
   }
   const delim = s[i] === "{" && name !== "verb" && name !== "verb*" ? "}" : s[i];
   if (!delim || /[\sA-Za-z]/.test(delim)) return i;
   const e = s.indexOf(delim, i + 1);
-  return e < 0 || e > lineEnd(s, i) ? lineEnd(s, i) : e + 1;
+  return e < 0 || e > lineEnd(s, i) ? lineEnd(s, i) + (includeOpenEnd ? 1 : 0) : e + 1;
 }
 
 const INLINE_VERBATIM = new Set(["verb", "verb*", "lstinline", "mintinline"]);
+
+const literalCache = new WeakMap<Text, readonly { from: number; to: number }[]>();
+
+/** Whether insertion at pos is in literal code or a comment, including unfinished code. */
+export function literalAt(doc: Text, pos: number): boolean {
+  if (doc.length > 1_000_000) return true;
+  let ranges = literalCache.get(doc);
+  if (!ranges) {
+    const text = doc.toString();
+    const found: { from: number; to: number }[] = [];
+    const commands = /%[^\n]*|\\(?:[A-Za-z@]+\*?|[^\n])/g;
+    for (let match; (match = commands.exec(text)); ) {
+      const from = match.index;
+      const name = match[0].slice(1);
+      let to = commands.lastIndex;
+      if (match[0][0] === "%") {
+        to++;
+      } else if (INLINE_VERBATIM.has(name)) {
+        to = skipVerbatim(text, to, name, true);
+        if (to === commands.lastIndex) continue;
+      } else if (name === "begin") {
+        ENV_ARG.lastIndex = to;
+        const env = ENV_ARG.exec(text);
+        if (!env || !VERBATIM_ENVS.has(env[1])) continue;
+        const close = `\\end{${env[1]}}`;
+        const end = text.indexOf(close, ENV_ARG.lastIndex);
+        to = end < 0 ? text.length + 1 : end + close.length;
+      } else if (name === "iffalse" && iffalseStarts(text, from)) {
+        const end = iffalseEnd(text, to).end;
+        to = end < 0 ? text.length + 1 : end;
+      } else {
+        const base = name.endsWith("*") ? name.slice(0, -1) : name;
+        if (DEFINERS.has(base)) commands.lastIndex = definitionEnd(text, to);
+        continue;
+      }
+      found.push({ from, to });
+      commands.lastIndex = to;
+    }
+    literalCache.set(doc, (ranges = found));
+  }
+  let lo = 0, hi = ranges.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    const range = ranges[mid];
+    if (pos <= range.from) hi = mid;
+    else if (pos >= range.to) lo = mid + 1;
+    else return true;
+  }
+  return false;
+}
 
 // ---- text constructs (design 4.4 #5-#11) -------------------------------------------------
 

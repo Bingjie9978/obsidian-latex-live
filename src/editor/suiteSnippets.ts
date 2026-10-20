@@ -12,7 +12,7 @@ import { snippet as cmSnippet } from "@codemirror/autocomplete";
 import { isolateHistory } from "@codemirror/commands";
 import { Extension, Prec, Text } from "@codemirror/state";
 import { Command, EditorView } from "@codemirror/view";
-import { mathAt } from "./latexScan";
+import { literalAt, mathAt } from "./latexScan";
 
 /** LaTeX Suite's Mode: where the cursor is. */
 export interface SuiteMode {
@@ -97,8 +97,7 @@ const NOWHERE: SuiteMode = {
 };
 
 export function suitePlace(doc: Text, pos: number, textMacros: SuiteConfig["textMacros"] = []): SuitePlace {
-  const line = doc.lineAt(pos);
-  if (/(^|[^\\])(\\\\)*%/.test(line.text.slice(0, pos - line.from))) return { mode: { ...NOWHERE }, env: null, macros: [] };
+  if (literalAt(doc, pos)) return { mode: { ...NOWHERE }, env: null, macros: [] };
   const math = innerMath(doc, pos);
   if (!math) return { mode: { ...NOWHERE, text: true }, env: null, macros: [] };
   const macros = macroStack(doc.sliceString(math.inner, pos));
