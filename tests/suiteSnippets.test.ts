@@ -259,7 +259,9 @@ test("snippets preserve verbatim environments, inline code and skipped comments"
     "\\begin{minted}{latex}\n|\n\\end{minted}",
     "\\begin{verbatim}\n|",
     "\\verb!|!",
+    "\\verb!|",
     "\\lstinline[language=TeX]{|}",
+    "\\lstinline[language=TeX]{|",
     "\\mintinline{latex}!|!",
     "\\mintinline[fontsize=\\small]{latex}!|!",
     "\\iffalse\n|\n\\fi",
@@ -272,7 +274,13 @@ test("snippets preserve verbatim environments, inline code and skipped comments"
     try { type(view, "mk"); assert.equal(shown(view), expected, source); }
     finally { done(); }
   }
-  for (const source of ["\\verb!example!|", "\\mintinline[fontsize=\\small]{latex}!example!|", "Here |% comment"]) {
+  for (const source of [
+    "\\verb!example!|",
+    "\\mintinline[fontsize=\\small]{latex}!example!|",
+    "\\newcommand{\\example}{\\begin{verbatim}}\n|",
+    "\\verb!\\begin{verbatim}! |",
+    "Here |% comment",
+  ]) {
     const outside = setup(source);
     try { type(outside.view, "mk"); assert.equal(shown(outside.view), source.replace("|", "$|$")); }
     finally { outside.done(); }

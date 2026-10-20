@@ -21,6 +21,7 @@ import { includeName, preambleFiles } from "../tex/project";
 import { latexCompletionSource } from "./latexCompletion";
 import { applyEditorAppearance } from "./editorAppearance";
 import { latexFolding } from "./latexFolding";
+import { ClickText, flashLine, locateClick } from "./reveal";
 import { proseSpelling } from "./proseTools";
 import { invalidateProjectOutline } from "./projectOutline";
 import { latexLiveLanguage } from "./latexLive";
@@ -273,24 +274,35 @@ export class TexView extends TextFileView {
   }
 
   /** 1-based line and 0-based column of the main cursor. */
-  cursor(): { line: number; column: number } | null {
+  cursor(): { line: number; column: number; text: string } | null {
     if (!this.editor) return null;
     const head = this.editor.state.selection.main.head;
     const line = this.editor.state.doc.lineAt(head);
-    return { line: line.number, column: head - line.from };
+    return { line: line.number, column: head - line.from, text: line.text };
   }
 
-  /** Move the cursor to a 1-based line, scroll it into view, and focus. */
-  revealLine(line: number, column = 0): void {
-    if (!this.editor) return;
-    const doc = this.editor.state.doc;
+  /**
+   * Move the cursor to a 1-based line, scroll it into view, flash the line, and focus. With
+   * `click` (the word double-clicked in the PDF), the cursor goes to that word in the line's
+   * paragraph (locateClick).
+   */
+  revealLine(line: number, column = 0, click?: ClickText): void {
+    const editor = this.editor;
+    if (!editor) return;
+    const doc = editor.state.doc;
+    const found = click ? locateClick(doc, line, click) : null;
+    if (found) ({ line, column } = found);
     const target = doc.line(Math.min(Math.max(line, 1), doc.lines));
     const pos = target.from + Math.min(Math.max(column, 0), target.length);
-    this.editor.dispatch({
+    editor.dispatch({
       selection: { anchor: pos },
       effects: EditorView.scrollIntoView(pos, { y: "center" }),
     });
-    this.editor.focus();
+    flashLine(editor, pos);
+    editor.focus();
+    // The PDF pane can take focus back after its double-click settles.
+    const win = editor.dom.ownerDocument.defaultView ?? window;
+    win.requestAnimationFrame(() => { if (this.editor === editor && !editor.hasFocus) editor.focus(); });
   }
 
   /**

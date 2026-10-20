@@ -26,6 +26,7 @@ import type { TexDiagnostic } from "../tex/logParser";
 import { opensArgumentList, typingCommand } from "./latexCompletion";
 import { latexEnterHooks, latexIndent } from "./latexEnter";
 import { latexHighlightPlugin } from "./latexHighlight";
+import { revealFlash } from "./reveal";
 import { LatexBlock, LatexMath, mathAt } from "./latexScan";
 import { SuiteConfigSource, suiteSnippets, suiteTabFallback } from "./suiteSnippets";
 import {
@@ -113,6 +114,7 @@ export function texEditorExtensions(o: TexEditorOptions): Extension[] {
     rectangularSelection(),
     crosshairCursor(),
     highlightActiveLine(),
+    revealFlash,
     highlightSelectionMatches(),
     bracketMatching(),
     closeBrackets(),
