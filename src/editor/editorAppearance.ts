@@ -1,6 +1,6 @@
 /** Local typography overrides for one LaTeX editor or its tooltip portal. */
 export interface EditorAppearance {
-  /** 0 follows Obsidian's text size; other values are pixels. */
+  /** 0 follows Obsidian's code size (Markdown code blocks); other values are pixels. */
   editorFontSize: number;
   /** 0 follows the theme; other values are unitless line-height multipliers. */
   editorLineHeight: number;
@@ -26,6 +26,7 @@ export function applyEditorAppearance(container: HTMLElement, settings: EditorAp
   const scale = typeof settings.mathPreviewScale === "number" && Number.isFinite(settings.mathPreviewScale)
     ? Math.min(2, Math.max(0.5, settings.mathPreviewScale)) : 1;
   override("--font-text-size", fontSize === null ? null : `${fontSize}px`);
+  override("--ll-editor-font-size", fontSize === null ? null : `${fontSize}px`);
   // Tooltip/card text has its own inherited size. Only an explicit editor size changes
   // their formula baseline, so the default keeps the host's existing math typography.
   override("--ll-editor-math-font-size", fontSize === null ? null : `${fontSize}px`);
