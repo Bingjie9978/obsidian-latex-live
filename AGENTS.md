@@ -828,6 +828,12 @@
   only cleveref list commands split commas. Range commands keep each endpoint whole.
   Existing comma keys can be renamed to a safe new key; new comma names are rejected.
 
+- SyncTeX text refinement must have a bounded matching budget. Use words near the source
+  cursor so soft-wrapped long paragraphs still get useful corrections; an exhausted budget
+  retains the native SyncTeX result. Inverse search must enumerate every occurrence inside
+  an unspaced CJK token and score its internal left/right context. Keep the long-paragraph,
+  ambiguous-page and repeated-Chinese-word regressions in syncText/reveal tests.
+
 - Obsidian's community installer treats a failed `styles.css` download as optional. The preview
   checks its marker after a 300ms host-loading window and reports how to update/restart (or
   reinstall after backing up settings) if the sheet is absent. Each preview warns once;

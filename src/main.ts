@@ -17,6 +17,7 @@ import { HistoryCache, syncDarkTheme } from "./editor/shared/editorKit";
 import { isLive, renderStats } from "./editor/shared/livePreview";
 import { YoloBridge } from "./editor/shared/yoloBridge";
 import type { MathJaxLike } from "./editor/mathjaxProject";
+import type { ClickText } from "./editor/reveal";
 import { TexRender } from "./editor/texRender";
 import { parseTemplateProfiles, type TemplateVisualizationProfile } from "./editor/templateVisualization";
 import { TemplateVisualizationModal } from "./editor/templateVisualizationModal";
@@ -44,6 +45,7 @@ import { resolveTexBinDir, texEnv } from "./tex/binaries";
 import { TexDiagnostic } from "./tex/logParser";
 import { findRoot } from "./tex/project";
 import { forwardSearch, inverseSearch, SourceLocation } from "./tex/synctex";
+import { lineWords } from "./preview/syncText";
 
 const TEX_EXTENSIONS = ["tex", "sty", "cls", "ltx", "bib"];
 
@@ -520,9 +522,11 @@ export default class LatexLivePlugin extends Plugin {
       cur.column,
     );
     if (!box) return;
+    // The line's words correct SyncTeX's box in the PDF's text (syncText.ts).
+    const words = lineWords(cur.text, cur.column);
     for (const leaf of this.previewLeaves()) {
       const pv = leaf.view as LatexPreviewView;
-      if (pv.root === root) pv.reveal(box, onlyIfHidden);
+      if (pv.root === root) pv.reveal(box, onlyIfHidden, words);
     }
   }
 
@@ -545,8 +549,11 @@ export default class LatexLivePlugin extends Plugin {
     );
   }
 
-  /** Open a vault file in the LaTeX editor at a 1-based line. */
-  async openLocation(abs: string, line: number, column = 0): Promise<void> {
+  /**
+   * Open a vault file in the LaTeX editor at a 1-based line. `click`, the word double-clicked in
+   * the PDF, places the cursor on it near that line (TexView.revealLine).
+   */
+  async openLocation(abs: string, line: number, column = 0, click?: ClickText): Promise<void> {
     const rel = this.vaultPath(abs);
     const file = rel ? this.app.vault.getAbstractFileByPath(rel) : null;
     if (!(file instanceof TFile)) return;
@@ -561,7 +568,7 @@ export default class LatexLivePlugin extends Plugin {
       leaf = this.editorLeaf();
       await leaf.openFile(file);
     }
-    if (leaf.view instanceof TexView) leaf.view.revealLine(line, column);
+    if (leaf.view instanceof TexView) leaf.view.revealLine(line, column, click);
   }
 
   private editorLeaf(): WorkspaceLeaf {

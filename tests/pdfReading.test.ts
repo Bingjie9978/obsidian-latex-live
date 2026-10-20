@@ -263,7 +263,21 @@ test("preview controls navigate pages and text double-click retains inverse Sync
   assert.equal(view.contentEl.querySelector<HTMLButtonElement>('button[aria-label="Save the last successful build as PDF"]')!.disabled, false);
   const text = view.contentEl.querySelector(".ll-pdf-text span")!;
   text.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, cancelable: true, clientX: 20, clientY: 30 })); await tick();
-  assert.equal(inverses.length, 1); assert.deepEqual(opened, [["/vault/main.tex", 3]]);
+  assert.equal(inverses.length, 1); assert.deepEqual(opened, [["/vault/main.tex", 3, 0, undefined]]);
+  // The word the double-click selected in the text layer goes along to place the cursor.
+  text.textContent = "distinctive,"; document.getSelection()!.selectAllChildren(text);
+  text.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, cancelable: true, clientX: 20, clientY: 30 })); await tick();
+  assert.deepEqual(opened[1], ["/vault/main.tex", 3, 0, { word: "distinctive", before: "", after: "" }]);
+  // The text around it, from the neighbouring spans pdf.js makes for each text run.
+  const layer = text.parentElement!, prev = document.createElement("span"), next = document.createElement("span");
+  prev.textContent = "the linear"; next.textContent = "first.";
+  layer.insertBefore(prev, text); text.after(next); text.textContent = "problem";
+  const range = document.createRange(); range.setStart(text.firstChild!, 0); range.setEnd(text.firstChild!, 7);
+  document.getSelection()!.removeAllRanges(); document.getSelection()!.addRange(range);
+  text.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, cancelable: true, clientX: 20, clientY: 30 })); await tick();
+  assert.deepEqual(opened[2][3], { word: "problem", before: "the linear", after: "first." });
+  prev.remove(); next.remove();
+  document.getSelection()!.removeAllRanges(); inverses.length = 1;
   const link = view.contentEl.querySelector(".ll-pdf-link")!;
   link.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, cancelable: true })); await tick();
   assert.equal(inverses.length, 1);
