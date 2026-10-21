@@ -535,6 +535,14 @@ export default class LatexLivePlugin extends Plugin {
     void this.app.workspace.revealLeaf(leaf);
   }
 
+  /** Scroll the open previews of `root` to a 1-based PDF page (none open: nothing happens). */
+  showPdfPage(root: string, page: number): void {
+    for (const leaf of this.previewLeaves()) {
+      const pv = leaf.view as LatexPreviewView;
+      if (pv.root === root) pv.goToPage(page);
+    }
+  }
+
   /** Forward SyncTeX: scroll the preview to the editor's cursor. */
   async syncPreviewToCursor(view: TexView, onlyIfHidden: boolean): Promise<void> {
     const abs = view.absolutePath();
@@ -618,6 +626,8 @@ export default class LatexLivePlugin extends Plugin {
       // Never replace the preview pane itself.
       leaf = this.editorLeaf();
       await leaf.openFile(file);
+      // The reused leaf may be a background tab.
+      this.app.workspace.setActiveLeaf(leaf, { focus: true });
     }
     if (leaf.view instanceof TexView) leaf.view.revealLine(line, column, click);
   }
