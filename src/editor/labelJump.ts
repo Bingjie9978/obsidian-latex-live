@@ -4,14 +4,16 @@ import { CITE_COMMANDS } from "./latexHighlight";
 import { literalAt } from "./latexScan";
 
 /**
- * Mod-click (Cmd on macOS, Ctrl elsewhere) on a reference chip (`\ref`, `\eqref`, `\cref`, ...)
- * jumps to its `\label`: in this document the cursor moves there and the view scrolls; otherwise
- * `elsewhere` opens the project file that has it. A plain click is unchanged (it reveals the source).
+ * A click on a reference chip (`\ref`, `\eqref`, `\cref`, ...; with or without Cmd/Ctrl) jumps to
+ * its `\label`, like an Obsidian link: in this document the cursor moves there and the view
+ * scrolls; otherwise `elsewhere` opens the project file that has it. The handler runs on mousedown,
+ * before CodeMirror places the cursor, and only for the chip itself: a click beside it, the arrow
+ * keys or a Shift/Alt-click put the cursor at the chip and reveal its source.
  */
 export function labelJump(elsewhere: (key: string) => void): Extension {
   return EditorView.domEventHandlers({
     mousedown(event, view) {
-      if (event.button !== 0 || !modKey(event)) return false;
+      if (event.button !== 0 || event.shiftKey || event.altKey) return false;
       const chip = (event.target as HTMLElement | null)?.closest?.("[data-ll-ref-key]") as HTMLElement | null;
       const key = chip?.dataset.llRefKey;
       const command = chip?.dataset.llRefCommand ?? "";
@@ -27,9 +29,6 @@ export function labelJump(elsewhere: (key: string) => void): Extension {
     },
   });
 }
-
-const modKey = (event: MouseEvent): boolean =>
-  /Mac|iPhone|iPad/.test(navigator.platform) ? event.metaKey : event.ctrlKey;
 
 /** The position of `\label{key}` in `doc` outside comments and literal code, or null. */
 export function labelIn(doc: Text, key: string): number | null {

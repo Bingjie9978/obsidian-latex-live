@@ -608,17 +608,19 @@ export default class LatexLivePlugin extends Plugin {
     const rel = this.vaultPath(abs);
     const file = rel ? this.app.vault.getAbstractFileByPath(rel) : null;
     if (!(file instanceof TFile)) return;
+    // A background tab restored by Obsidian holds a deferred view, not a TexView, until it is
+    // shown: match it by its state, and bring whichever leaf is used to the front.
     let leaf =
       this.app.workspace
         .getLeavesOfType(VIEW_TYPE_TEX)
-        .find((l) => l.view instanceof TexView && l.view.file?.path === rel) ?? null;
-    if (leaf) {
-      this.app.workspace.setActiveLeaf(leaf, { focus: true });
-    } else {
+        .find((l) => (l.view instanceof TexView ? l.view.file?.path : l.getViewState().state?.file) === rel) ?? null;
+    if (!leaf) {
       // Never replace the preview pane itself.
       leaf = this.editorLeaf();
       await leaf.openFile(file);
     }
+    await this.app.workspace.revealLeaf(leaf);
+    this.app.workspace.setActiveLeaf(leaf, { focus: true });
     if (leaf.view instanceof TexView) leaf.view.revealLine(line, column, click);
   }
 

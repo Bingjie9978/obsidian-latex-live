@@ -345,6 +345,13 @@ SOFTWARE.
 .lsp-cm-view .lsp-lp-chip.is-missing {
   color: var(--text-warning);
 }
+/* A reference chip jumps to its \label on click (labelJump.ts). */
+.lsp-cm-view .lsp-lp-chip.is-ref[data-ll-ref-key]:hover {
+  cursor: var(--cursor-link, pointer);
+  text-decoration: underline;
+  text-decoration-color: var(--text-accent-hover, currentColor);
+  text-underline-offset: 2px;
+}
 /* Headings (line classes). */
 .lsp-cm-view .cm-line.lsp-lp-h1,
 .lsp-cm-view .cm-line.lsp-lp-h2,
