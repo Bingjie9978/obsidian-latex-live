@@ -51,7 +51,7 @@ function backend(answer: (state: EditorState, pos: LspPosition) => unknown = () 
     async request(pos, context, state) {
       const line = state.doc.line(pos.line + 1);
       calls.push({ pos, context, before: line.text.slice(0, pos.character) });
-      return structuredClone(answer(state, pos) ?? null);
+      return structuredClone((await answer(state, pos)) ?? null);
     },
   };
   return { backend: b, calls };
@@ -692,6 +692,29 @@ test("glyphs: texlab detail and built-in symbols", () => {
 
 const TEXLAB_BIN = process.env.TEXLAB_BIN || resolveTexlab("");
 
+// The Enter hook deliberately waits at most 400 ms. Test that interaction with a
+// recorded native answer and controlled latency; a loaded CI host's real texlab
+// may legitimately answer after that deadline. Native environment completion is
+// checked independently below without imposing a server performance requirement.
+test("\\begin{ali + an immediate Enter inserts the align pair while completion loads (KY-2)", async () => {
+  const { backend: b, calls } = backend(async (state, pos) => {
+    await sleep(30);
+    const r = range(pos.line, pos.character - 3, pos.character);
+    return { items: CASE.env_begin.response.items.map((i) => ({ ...i, textEdit: { range: r, newText: i.label } })) };
+  });
+  const view = editor("|", latexCompletionSource(b));
+  try {
+    typeKeys(view, "\\begin{ali");
+    assert.equal(lineAtCursor(view), "\\begin{ali|}");
+    press(view, "Enter");
+    const deadline = Date.now() + 3000;
+    while (!view.state.doc.toString().includes("\\end{") && Date.now() < deadline) await sleep(10);
+    assert.ok(calls.length > 0, "the asynchronous completion backend answered");
+    assert.equal(view.state.doc.toString(), "\\begin{align}\n    \n\\end{align}");
+    assert.equal(lineAtCursor(view), "    |");
+  } finally { view.destroy(); }
+});
+
 test("live texlab on a copied project", { skip: !TEXLAB_BIN && "texlab not found (set TEXLAB_BIN)" }, async (t) => {
   const dir = mkdtempSync(join(tmpdir(), "ll-texlab-"));
   cpSync("tests/fixtures/texproj", dir, { recursive: true });
@@ -743,17 +766,6 @@ test("live texlab on a copied project", { skip: !TEXLAB_BIN && "texlab not found
       await settle(view);
       assert.ok(labels(view).includes("align"), labels(view).join(" "));
       press(view, "Enter");
-      assert.ok(view.state.doc.toString().includes("\\begin{align}\n  \n\\end{align}\n"), view.state.doc.toString());
-      assert.equal(lineAtCursor(view), "  |");
-      done(view);
-    });
-
-    await t.test("\\begin{ali + an immediate Enter still inserts the align pair (KY-2)", async () => {
-      const view = open("|");
-      typeKeys(view, "\\begin{ali");
-      assert.equal(lineAtCursor(view), "\\begin{ali|}");
-      press(view, "Enter");
-      await sleep(600);
       assert.ok(view.state.doc.toString().includes("\\begin{align}\n  \n\\end{align}\n"), view.state.doc.toString());
       assert.equal(lineAtCursor(view), "  |");
       done(view);

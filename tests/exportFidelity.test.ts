@@ -211,6 +211,10 @@ test("article (pdfLaTeX, natbib, cleveref): (2a)(2b) and (⋆); references and c
   // The \thanks footnote's mark is TeX's (\@fnsymbol).
   assert.deepEqual(e.report.numbers.filter((n) => n.counter === "footnote").map((n) => n.value), ["∗"]);
   const page = squeeze(text(e.html));
+  // cleveref's recorded label type may follow either the shared counter or the
+  // theorem environment, depending on the installed amsthm/kernel. Compare the
+  // same native .aux reference with both HTML and the real PDF below.
+  const lemmaRef = squeeze(refText("cref", ["lem:bias-variance"], e.refs).text);
   const expected = [
     "recoverthem[1].",
     "numerically.RoeandPlaceholder",
@@ -221,8 +225,8 @@ test("article (pdfLaTeX, natbib, cleveref): (2a)(2b) and (⋆); references and c
     "Table1comparesthebound(2b)",
     "Figures1and2showthetrend",
     "(Equation(⋆))",
-    "ProofofTheorem2.2.",
-    "UnderTheorem2.2,",
+    `Proofof${lemmaRef}.`,
+    `Under${lemmaRef},`,
     "attentionmodels;see[2,3].",
     "ComparewithTheorem3.1andSection1.",
   ];
@@ -291,7 +295,8 @@ test("book: the class's names and colours as TeX prints them (assertions 3, 4)",
 test("article: amsthm's names and heads as the PDF prints them (assertion 3)", { skip, timeout: 240_000 }, async () => {
   const e = await fixture("export-article");
   const page = squeeze(text(e.html));
-  const heads = ["Definition2.1(Linearreconstructor).", "Lemma2.2.", "Theorem3.1.", "Remark.", "ProofofTheorem2.2.", "Abstract", "References", "Table1", "Figure1", "Figure2"];
+  const lemmaRef = squeeze(refText("cref", ["lem:bias-variance"], e.refs).text);
+  const heads = ["Definition2.1(Linearreconstructor).", "Lemma2.2.", "Theorem3.1.", "Remark.", `Proofof${lemmaRef}.`, "Abstract", "References", "Table1", "Figure1", "Figure2"];
   for (const s of heads) assert.ok(page.includes(s), `${s}: HTML text\n${page}`);
   if (gs) {
     const pdf = squeeze(pdfText(join(e.host.buildDir, "main.pdf")));

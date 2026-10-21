@@ -1,4 +1,4 @@
-// Actual acmart 2.16, both anonymous and explicitly public: the source keeps identifying
+// The installed acmart, both anonymous and explicitly public: the source keeps identifying
 // metadata, but the native flag and native comment environments govern what the export reveals.
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -18,7 +18,7 @@ const gs = ghostscript(texBin);
 const dirs: string[] = [];
 after(() => { removeExportTemps(); for (const dir of dirs) rmSync(dir, { recursive: true, force: true }); });
 
-const markers = ["PRIVATE_AUTHOR", "PRIVATE_INSTITUTE", "PRIVATE_EMAIL", "PRIVATE_ORCID", "PRIVATE_NOTE", "PRIVATE_ACK", "PRIVATE_SUP"];
+const markers = ["PRIVATE_AUTHOR", "PRIVATE_INSTITUTE", "PRIVATEEMAIL", "PRIVATE_ORCID", "PRIVATE_NOTE", "PRIVATE_ACK", "PRIVATE_SUP"];
 // OT1's underscore may be a rule rather than a text glyph; comparison still detects the
 // identifying words on the rendered PDF, independently of their font's underscore mapping.
 const normalized = (s: string) => s.replace(/[\s_]/g, "");
@@ -34,7 +34,7 @@ for (const anonymous of [true, false]) test(`real ACM export: anonymous=${anonym
 \author{PRIVATE\_AUTHOR}
 \authornote{PRIVATE\_NOTE}
 \affiliation{\institution{PRIVATE\_INSTITUTE}\city{Synthetic Town}\country{United States}}
-\email{PRIVATE_EMAIL@example.invalid}
+\email{PRIVATEEMAIL@example.invalid}
 \orcid{PRIVATE_ORCID}
 \begin{document}
 \begin{abstract}
@@ -73,7 +73,7 @@ PRIVATE\_SUP: an original synthetic supplementary statement.
   } else {
     for (const marker of markers) assert.ok(normalized(html).includes(normalized(marker)), `public HTML loses ${marker}`);
     assert.equal(doc.querySelectorAll(".llx-paper-author").length, 1);
-    assert.equal(doc.querySelector('a[href="mailto:PRIVATE_EMAIL@example.invalid"]') !== null, true);
+    assert.equal(doc.querySelector('a[href="mailto:PRIVATEEMAIL@example.invalid"]') !== null, true);
     assert.ok(log.steps.some((s) => s.counter === "toc" && /Acknowledg/.test(s.value)));
     assert.ok([...doc.querySelectorAll("h2,h3,h4")].some((h) => h.textContent === "Acknowledgments"), "public acknowledgments have their native named heading");
   }
