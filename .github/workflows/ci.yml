@@ -66,7 +66,7 @@ jobs:
           tlmgr option docfiles 0
           tlmgr option srcfiles 0
           tlmgr update --self --all
-          tlmgr install collection-latexextra collection-latexrecommended collection-xetex collection-luatex collection-metapost collection-langchinese collection-bibtexextra collection-pictures collection-science collection-publishers latexmk dvisvgm newtx libertine inconsolata
+          tlmgr install collection-latexextra collection-latexrecommended collection-xetex collection-luatex collection-metapost collection-langchinese collection-bibtexextra collection-pictures collection-mathscience collection-publishers latexmk dvisvgm newtx libertine inconsolata
           sudo apt-get update
           sudo apt-get install -y ghostscript mupdf-tools
       - name: Install current native texlab for POSIX path coverage
