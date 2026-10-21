@@ -88,7 +88,7 @@ PRIVATE\_SUP: an original synthetic supplementary statement.
     const expandedPdf = join(dir, "annotations.pdf");
     execFileSync(gs, ["-q", "-dNOPAUSE", "-dBATCH", "-sDEVICE=pdfwrite", "-dCompatibilityLevel=1.4", "-dCompressPages=false", "-dCompressFonts=false", "-dCompressStreams=false", "-dWriteObjStms=false", "-dWriteXRefStm=false", `-sOutputFile=${expandedPdf}`, pdf], { timeout: 20000, windowsHide: true });
     const rawPdf = readFileSync(expandedPdf).toString("latin1");
-    for (const marker of markers.filter((m) => m !== "PRIVATE_ORCID")) assert.equal(visiblePdf.includes(normalized(marker)), !anonymous, `${marker}: native PDF visibility`);
+    for (const marker of markers.filter((m) => m !== "PRIVATE_ORCID")) assert.equal(visiblePdf.includes(normalized(marker)), !anonymous, `${marker}: native PDF visibility\n${visiblePdf}`);
     assert.equal(rawPdf.includes("PRIVATE_ORCID"), !anonymous, "native ORCID annotation presence");
   }
   assert.deepEqual(report.items, [], JSON.stringify(report.items));

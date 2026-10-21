@@ -226,7 +226,7 @@ test("article (pdfLaTeX, natbib, cleveref): (2a)(2b) and (⋆); references and c
     "attentionmodels;see[2,3].",
     "ComparewithTheorem3.1andSection1.",
   ];
-  for (const s of expected) assert.ok(page.includes(s), s);
+  for (const s of expected) assert.ok(page.includes(s), `${s}: HTML text\n${page}`);
   if (gs) {
     const pdf = squeeze(pdfText(join(e.host.buildDir, "main.pdf")));
     for (const s of expected) assert.ok(pdf.includes(s), `PDF: ${s}`);
@@ -292,7 +292,7 @@ test("article: amsthm's names and heads as the PDF prints them (assertion 3)", {
   const e = await fixture("export-article");
   const page = squeeze(text(e.html));
   const heads = ["Definition2.1(Linearreconstructor).", "Lemma2.2.", "Theorem3.1.", "Remark.", "ProofofTheorem2.2.", "Abstract", "References", "Table1", "Figure1", "Figure2"];
-  for (const s of heads) assert.ok(page.includes(s), s);
+  for (const s of heads) assert.ok(page.includes(s), `${s}: HTML text\n${page}`);
   if (gs) {
     const pdf = squeeze(pdfText(join(e.host.buildDir, "main.pdf")));
     for (const s of heads) assert.ok(pdf.includes(s), `PDF: ${s}`);
