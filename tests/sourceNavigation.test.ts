@@ -29,9 +29,14 @@ test("a background tab still deferred is matched by its file and brought to the 
   const view = Object.create(TexView.prototype) as TexView;
   Object.defineProperty(view, "file", { value: file });
   view.revealLine = (line, column) => { opened.push([line, column]); };
-  // Obsidian restores background tabs with a placeholder view until they are shown.
-  const deferred: { view: unknown; getViewState: () => { state: { file: string } } } = { view: {}, getViewState: () => ({ state: { file: file.path } }) };
-  const other = { view: loaded, getViewState: () => ({ state: { file: "章节/a.tex" } }), openFile: async () => { calls.push("openFile"); } };
+  // Obsidian restores background tabs with a placeholder view until they are shown; revealLeaf
+  // returns before the real view has loaded its file, loadIfDeferred waits for it.
+  const deferred = {
+    view: {} as unknown,
+    getViewState: () => ({ state: { file: file.path } }),
+    loadIfDeferred: async () => { calls.push("load deferred"); deferred.view = view; },
+  };
+  const other = { view: loaded, getViewState: () => ({ state: { file: "章节/a.tex" } }), openFile: async () => { calls.push("openFile"); }, loadIfDeferred: async () => {} };
   const host = {
     vaultBase: () => base,
     vaultPath: (absolute: string) => LatexLivePlugin.prototype.vaultPath.call(host as unknown as LatexLivePlugin, absolute),
@@ -39,13 +44,13 @@ test("a background tab still deferred is matched by its file and brought to the 
       vault: { getAbstractFileByPath: (path: string) => (path === file.path ? file : null) },
       workspace: {
         getLeavesOfType: () => [other, deferred],
-        revealLeaf: async (leaf: unknown) => { calls.push(leaf === deferred ? "reveal deferred" : "reveal other"); if (leaf === deferred) deferred.view = view; },
+        revealLeaf: async (leaf: unknown) => { calls.push(leaf === deferred ? "reveal deferred" : "reveal other"); },
         setActiveLeaf: (leaf: unknown) => { calls.push(leaf === deferred ? "activate deferred" : "activate other"); },
       },
     },
   };
   await LatexLivePlugin.prototype.openLocation.call(host as unknown as LatexLivePlugin, base + "/章节/b.tex", 7, 2);
-  assert.deepEqual(calls, ["reveal deferred", "activate deferred"]);
+  assert.deepEqual(calls, ["load deferred", "reveal deferred", "activate deferred"]);
   assert.deepEqual(opened, [[7, 2]]);
 });
 
@@ -86,7 +91,7 @@ for (const engine of ["pdflatex", "xelatex", "lualatex"] as const) for (const mo
       const view = Object.create(TexView.prototype) as TexView;
       Object.defineProperty(view, "file", { value: file });
       view.revealLine = (line, column) => { opened.push([line, column]); };
-      const leaf = { view };
+      const leaf = { view, loadIfDeferred: async () => {} };
       const host = {
         vaultBase: () => base,
         vaultPath: (absolute: string) => LatexLivePlugin.prototype.vaultPath.call(host as unknown as LatexLivePlugin, absolute),

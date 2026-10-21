@@ -609,7 +609,8 @@ export default class LatexLivePlugin extends Plugin {
     const file = rel ? this.app.vault.getAbstractFileByPath(rel) : null;
     if (!(file instanceof TFile)) return;
     // A background tab restored by Obsidian holds a deferred view, not a TexView, until it is
-    // shown: match it by its state, and bring whichever leaf is used to the front.
+    // shown: match it by its state, wait until its file has loaded (revealLeaf returns before
+    // that), and bring whichever leaf is used to the front.
     let leaf =
       this.app.workspace
         .getLeavesOfType(VIEW_TYPE_TEX)
@@ -619,6 +620,7 @@ export default class LatexLivePlugin extends Plugin {
       leaf = this.editorLeaf();
       await leaf.openFile(file);
     }
+    await leaf.loadIfDeferred();
     await this.app.workspace.revealLeaf(leaf);
     this.app.workspace.setActiveLeaf(leaf, { focus: true });
     if (leaf.view instanceof TexView) leaf.view.revealLine(line, column, click);
