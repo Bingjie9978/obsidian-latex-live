@@ -161,6 +161,9 @@ test("imports and subfiles: contextual paths, aliases, body-only visits, and lit
   assert.equal(inputKey(p.rootDir, '"子目录/子文档"'), "子目录/子文档.tex");
   assert.equal(inputKey(p.rootDir, "..literal"), "..literal", "a filename beginning with dots stays inside the project");
   assert.equal(inputKey(p.rootDir, "../outside"), null);
+  assert.equal(inputKey(p.rootDir, join(p.rootDir, "子目录", "子文档.tex")), "子目录/子文档.tex", "native absolute input aliases retain their project key");
+  assert.equal(inputKey(p.rootDir, "\\dynamic"), null, "a TeX command is not a literal filename");
+  assert.equal(inputKey(p.rootDir, join(p.rootDir, "..", "outside.tex")), null, "absolute aliases cannot leave the project");
   for (const [key, copy] of p.copies) {
     assert.equal(copy, p.files.get(key)!.src, `${key}: native expansions never rewrite the probe source`);
   }

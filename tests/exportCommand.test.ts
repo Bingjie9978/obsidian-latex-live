@@ -387,7 +387,7 @@ test("the command and the context menu; the dialog's proposal: exportFolder, the
   answer = join(vault, "out", "book.html");
   await exporter.run(root);
   assert.equal(exporter.proposed(root), answer);
-  assert.match(notices.at(-1)!, /^LaTeX Live: HTML export failed: .*\/no\/tex\/bin\/latexmk ENOENT/);
+  assert.match(notices.at(-1)!, /^LaTeX Live: HTML export failed: .*[/\\]no[/\\]tex[/\\]bin[/\\]latexmk(?:\.exe)? ENOENT/);
   assert.deepEqual(writes, []);
   // No dialog (no Electron `remote`): the proposed file, with a Notice.
   answer = undefined;

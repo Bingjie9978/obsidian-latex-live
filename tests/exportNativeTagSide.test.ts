@@ -17,9 +17,10 @@ import { stripComments } from "../src/tex/project";
 import { theoremMap } from "../src/tex/theorems";
 import { texTool } from "../src/tex/binaries";
 import { nodeExportHost, removeExportTemps, texBin } from "./support/exportHost";
+import { ghostscript } from "./support/ghostscript";
 
 const skip = !texBin ? "no TeX installation" : false;
-const gs = spawnSync("gs", ["--version"]).status === 0;
+const gs = ghostscript(texBin);
 const dirs: string[] = [];
 after(() => { removeExportTemps(); for (const dir of dirs) rmSync(dir, { recursive: true, force: true }); });
 
@@ -56,7 +57,7 @@ for (const c of [
   assert.match(html, new RegExp(`<mjx-mtable[^>]* side="${c.want}"`));
   assert.deepEqual(report.items, []);
   if (gs) {
-    const xml = execFileSync("gs", ["-q", "-dNOPAUSE", "-dBATCH", "-sDEVICE=txtwrite", "-dTextFormat=0", "-sOutputFile=-", join(host.buildDir, "main.pdf")], { encoding: "utf8" });
+    const xml = execFileSync(gs, ["-q", "-dNOPAUSE", "-dBATCH", "-sDEVICE=txtwrite", "-dTextFormat=0", "-sOutputFile=-", join(host.buildDir, "main.pdf")], { encoding: "utf8", timeout: 20000, windowsHide: true });
     const chars = [...xml.matchAll(/<char bbox="([^\"]*)" c="([^\"]*)"/g)].map((m) => ({ box: m[1].split(" ").map(Number), c: m[2] }));
     const equation = chars.find((g) => g.c === "E")!;
     assert.ok(equation, xml);
@@ -66,7 +67,7 @@ for (const c of [
   }
 });
 
-const acmSkip = skip || spawnSync(texTool(texBin!, "kpsewhich"), ["acmart.cls"]).status !== 0 ? skip || "no ACM class" : false;
+const acmSkip = skip || spawnSync(texTool(texBin!, "kpsewhich"), ["acmart.cls"], { timeout: 5000, windowsHide: true }).status !== 0 ? skip || "no ACM class" : false;
 for (const anonymous of [true, false]) test(`ACM native anonymity flag: ${anonymous}`, { skip: acmSkip, timeout: 90_000 }, async () => {
   const dir = mkdtempSync(join(tmpdir(), "latex-live-acm-anonymous-"));
   dirs.push(dir);

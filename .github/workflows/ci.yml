@@ -7,7 +7,11 @@ permissions:
   contents: read
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -19,3 +23,91 @@ jobs:
       - run: node scripts/check-release.mjs
       - run: npm run build
       - run: node scripts/check-release.mjs --assets
+      - run: npm test
+  yolo-contract:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: qiulinfan/obsidian-yolo-completion-only
+          path: .ci-yolo
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            .ci-yolo/package-lock.json
+      - run: npm ci
+      - run: npm ci
+        working-directory: .ci-yolo
+      - run: npm run build
+        working-directory: .ci-yolo
+      - run: npm run test:yolo
+        env:
+          YOLO_MAIN: ${{ github.workspace }}/.ci-yolo/main.js
+  tex-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: r-lib/actions/setup-tinytex@v2
+      - name: Install current TeX packages and native PDF helpers
+        run: |
+          tlmgr option docfiles 0
+          tlmgr option srcfiles 0
+          tlmgr update --self --all
+          tlmgr install collection-latexextra collection-latexrecommended collection-xetex collection-luatex collection-metapost collection-langchinese collection-bibtexextra collection-pictures collection-science collection-publishers latexmk dvisvgm newtx libertine inconsolata
+          sudo apt-get update
+          sudo apt-get install -y ghostscript mupdf-tools
+      - name: Install current native texlab for POSIX path coverage
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api repos/latex-lsp/texlab/releases/latest > "$RUNNER_TEMP/texlab-release.json"
+          url=$(jq -r '.assets[] | select(.name == "texlab-x86_64-linux.tar.gz") | .browser_download_url' "$RUNNER_TEMP/texlab-release.json")
+          digest=$(jq -r '.assets[] | select(.name == "texlab-x86_64-linux.tar.gz") | .digest // empty' "$RUNNER_TEMP/texlab-release.json")
+          test -n "$url"
+          curl --fail --location "$url" --output "$RUNNER_TEMP/texlab.tar.gz"
+          if [[ "$digest" == sha256:* ]]; then
+            echo "${digest#sha256:}  $RUNNER_TEMP/texlab.tar.gz" | sha256sum --check
+          fi
+          mkdir "$RUNNER_TEMP/texlab-native"
+          tar -xzf "$RUNNER_TEMP/texlab.tar.gz" -C "$RUNNER_TEMP/texlab-native"
+          echo "TEXLAB_BIN=$RUNNER_TEMP/texlab-native/texlab" >> "$GITHUB_ENV"
+      - run: npm test
+  windows-paths:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Install current native texlab for the Windows path regression
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $headers = @{ Authorization = "Bearer $env:GH_TOKEN" }
+          $release = Invoke-RestMethod -Headers $headers https://api.github.com/repos/latex-lsp/texlab/releases/latest
+          $asset = $release.assets | Where-Object name -eq 'texlab-x86_64-windows.zip'
+          if (-not $asset) { throw 'Latest texlab has no Windows x64 artifact' }
+          $archive = Join-Path $env:RUNNER_TEMP 'texlab.zip'
+          $target = Join-Path $env:RUNNER_TEMP 'texlab-native'
+          Invoke-WebRequest $asset.browser_download_url -OutFile $archive
+          if ($asset.digest -and ('sha256:' + (Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant()) -ne $asset.digest) { throw 'texlab release digest differs' }
+          Expand-Archive -LiteralPath $archive -DestinationPath $target
+          "TEXLAB_BIN=$target\texlab.exe" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+      - run: npm run build
+      - run: npm test -- texlabPaths.test.ts portablePaths.test.ts auxData.test.ts

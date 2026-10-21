@@ -3,7 +3,7 @@
 // Numbers are compared with the resulting .aux, names and raw class colours with the probe;
 // English title/theorem/caption text is also compared with the PDF's text when gs is present.
 import assert from "node:assert/strict";
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -11,13 +11,14 @@ import { after, test } from "node:test";
 import { exportHtml } from "../src/export/exporter";
 import { readProbeLog } from "../src/export/probeLog";
 import { contrast, DARK_BG, parseColor } from "../src/export/profiles";
-import { readAuxLabels } from "../src/tex/aux";
+import { readAuxLabels } from "../src/tex/auxData";
 import { texTool } from "../src/tex/binaries";
 import { texText } from "../src/tex/texText";
 import { nodeExportHost, removeExportTemps, texBin } from "./support/exportHost";
+import { ghostscript } from "./support/ghostscript";
 
 const skip = !texBin ? "no TeX installation" : !existsSync(texTool(texBin, "xelatex")) ? "no XeLaTeX" : false;
-const gs = spawnSync("gs", ["--version"]).status === 0;
+const gs = ghostscript(texBin);
 const dirs: string[] = [];
 after(() => { removeExportTemps(); for (const dir of dirs) rmSync(dir, { recursive: true, force: true }); });
 
@@ -104,7 +105,7 @@ for (const c of cases) test(`class fidelity: ${c.fixture}, its actual names, num
     assert.doesNotMatch(text, /目录|摘要|证明/);
   }
   if (gs && c.lang === "en") {
-    const pdf = execFileSync("gs", ["-q", "-dNOPAUSE", "-dBATCH", "-sDEVICE=txtwrite", "-sOutputFile=-", join(host.buildDir, "main.pdf")], { encoding: "utf8" });
+    const pdf = execFileSync(gs, ["-q", "-dNOPAUSE", "-dBATCH", "-sDEVICE=txtwrite", "-sOutputFile=-", join(host.buildDir, "main.pdf")], { encoding: "utf8", timeout: 20000, windowsHide: true });
     for (const text of [`${c.theorem} ${texText(theorem.number)}`, `${c.caption} ${texText(figure.number)}`, c.proof]) assert.ok(compact(pdf).includes(compact(text)), text);
   }
 });

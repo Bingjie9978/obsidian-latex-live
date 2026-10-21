@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative, sep } from "node:path";
 import { after, test } from "node:test";
 import { JSDOM } from "jsdom";
 import { ExportImages } from "../src/export/images";
@@ -28,13 +28,13 @@ test("imported images, PDF pages and listings resolve per visit when one source 
     pdfImages: async (abs, want) => {
       calls.push(abs);
       assert.deepEqual(want(1), [1]);
-      return [{ page: 1, png: abs.includes("/a/") ? a : b, width: 100, height: 120 }];
+      return [{ page: 1, png: abs.includes(`${sep}a${sep}`) ? a : b, width: 100, height: 120 }];
     },
   });
   const document = new JSDOM(result.body).window.document;
   assert.deepEqual([...document.querySelectorAll("img")].map((img) => img.src), [a, a, b, b].map((png) => `data:image/png;base64,${png.toString("base64")}`));
   assert.deepEqual([...document.querySelectorAll("pre")].map((pre) => pre.textContent?.trim()), ["First imported <listing>.", "Second imported & listing."]);
-  assert.deepEqual(calls.map((path) => path.slice(result.dir.length + 1)), ["a/same.pdf", "b/same.pdf"]);
+  assert.deepEqual(calls.map((path) => relative(result.dir, path).split(sep).join("/")), ["a/same.pdf", "b/same.pdf"]);
   assert.deepEqual(result.report.items, []);
 
   // The same request API serves the emitter, and none of its getters re-read deleted files.

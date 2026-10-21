@@ -1,14 +1,14 @@
 // T-L6: readAuxLabels on static excerpts of the .aux files XeLaTeX writes for the synthetic
 // elegantbook fixture (\include puts each chapter's labels in chapters/*.aux) and pdfLaTeX for a
-// synthetic cleveref article (tests/fixtures/aux), and on hand-made edge cases.
+// synthetic cleveref article (tests/fixtures/aux-data), and on hand-made edge cases.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { readAuxCheckpoints, readAuxLabels } from "../src/tex/aux";
+import { readAuxCheckpoints, readAuxLabels } from "../src/tex/auxData";
 
-const AUX = resolve("tests/fixtures/aux");
+const AUX = resolve("tests/fixtures/aux-data");
 /** Each label as [key, number, page, kind]. */
 const rows = (dir: string) => [...readAuxLabels(dir)].map(([k, l]) => [k, l.number, l.page, l.kind]).sort();
 

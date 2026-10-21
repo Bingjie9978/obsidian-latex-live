@@ -10,7 +10,7 @@ import { planExport, reparse } from "../src/export/plan";
 import { prepareWorkDir, probeSty, runProbe } from "../src/export/probe";
 import { readProbeLog } from "../src/export/probeLog";
 import { censusTheorems, profileOf, theoremLook } from "../src/export/profiles";
-import { readAuxLabels } from "../src/tex/aux";
+import { readAuxLabels } from "../src/tex/auxData";
 import { texTool } from "../src/tex/binaries";
 import { projectDefinitions } from "../src/tex/macros";
 import { parseLog } from "../src/tex/logParser";
@@ -18,9 +18,10 @@ import { stripComments } from "../src/tex/project";
 import { texText } from "../src/tex/texText";
 import { theoremMap } from "../src/tex/theorems";
 import { nodeExportHost, removeExportTemps, texBin } from "./support/exportHost";
+import { ghostscript } from "./support/ghostscript";
 
-const skip = !texBin ? "no TeX installation" : spawnSync(texTool(texBin, "kpsewhich"), ["llncs.cls"]).status !== 0 ? "no LNCS class" : false;
-const gs = spawnSync("gs", ["--version"]).status === 0;
+const skip = !texBin ? "no TeX installation" : spawnSync(texTool(texBin, "kpsewhich"), ["llncs.cls"], { timeout: 5000, windowsHide: true }).status !== 0 ? "no LNCS class" : false;
+const gs = ghostscript(texBin);
 const dirs: string[] = [];
 after(() => { removeExportTemps(); for (const dir of dirs) rmSync(dir, { recursive: true, force: true }); });
 
@@ -76,7 +77,7 @@ for (const options of ["", "envcountsame,envcountsect", "envcountreset"]) test(`
   const parsed = reparse(plan, log.envs);
   assert.equal(parsed.sig.envs.get("statement"), "o");
   if (gs) {
-    const pdf = execFileSync("gs", ["-q", "-dNOPAUSE", "-dBATCH", "-sDEVICE=txtwrite", "-sOutputFile=-", native.pdfPath], { encoding: "utf8" }).replace(/\s+/g, "");
+    const pdf = execFileSync(gs, ["-q", "-dNOPAUSE", "-dBATCH", "-sDEVICE=txtwrite", "-sOutputFile=-", native.pdfPath], { encoding: "utf8", timeout: 20000, windowsHide: true }).replace(/\s+/g, "");
     for (const [key, counter] of Object.entries(counters)) assert.ok(pdf.includes(`${counter[0].toUpperCase()}${counter.slice(1)}${texText(aux.get(key)!.number)}`), key);
     assert.ok(pdf.includes("Proof(Sketch)."));
   }

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { test } from "node:test";
 import {
   detectEngine,
@@ -85,7 +85,7 @@ test("orphans compile on their own", () => {
 
 test("\\import resolves directory and file", () => {
   const refs = referencedFiles("\\subimport{parts/}{intro}\n", "/r");
-  assert.deepEqual(refs, ["/r/parts/intro.tex"]);
+  assert.deepEqual(refs, [resolve("/r/parts/intro.tex")]);
 });
 
 test("import contexts carry nested and parent fallback paths through root discovery and preamble inputs", () => {

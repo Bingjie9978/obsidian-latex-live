@@ -53,6 +53,12 @@
   standard font, wasm and ICC folders Obsidian's own viewer uses, under
   `/lib/pdfjs/`); without the CMaps the Chinese glyphs of XeLaTeX PDFs vanish.
 - TeX tool conventions that bugs have already come from:
+  - Keep source and fixture names valid on Windows: `aux` is a reserved device
+    name even with a `.ts` extension. Aux parsing lives in `auxData.ts`, with
+    fixtures in `tests/fixtures/aux-data`. `portablePaths.test.ts` guards names.
+    Send texlab output directories as file URLs through `pathToFileURL`;
+    Windows drive paths otherwise panic in texlab's dependency graph (issue #2).
+    `texlabPaths.test.ts` exercises the native server and the Windows CI job.
   - Pass the preamble format by name (`-fmt=<job>-preamble`) with
     `TEXFORMATS=<outDir>:`; an absolute `-fmt` path breaks the `-recorder`
     temp file name and pdfTeX exits before writing a log. A ready format has a
@@ -85,6 +91,10 @@
   - latexmk takes biber from PATH, bin dir first; full builds pass
     `-e $biber=...` when that biber does not run (`workingBiber`; MacTeX
     2026's universal biber only prints lipo's usage on this Mac).
+    The generated dependency hook is a private `latex-live.latexmkrc` in the build
+    directory, passed through `-r`: the Windows launcher flattens multiline `-e`
+    arguments and a Perl comment can swallow the remaining program. Keep the
+    same rc-file path on POSIX and preserve the user's existing latexmk hooks.
     The public `after_xlatex_analysis` hook removes only the exact physical
     build-dir/job `.run.xml` dependency confirmed as a recorder OUTPUT, with
     logreq's header and exclusively biblatex request owners. Preserve existing
@@ -444,7 +454,7 @@
   `lib/mathjax/tex-chtml-full.js`) with the config from app.js. It is never bundled.
   `tests/fixtures/elegantbook/` is a small synthetic elegantbook project (XeLaTeX with
   fandol, `\input`, `\include`, a local package, biblatex); keep it synthetic and compiling.
-  `tests/fixtures/aux/` holds static .aux excerpts of it and of a synthetic cleveref article
+  `tests/fixtures/aux-data/` holds static .aux excerpts of it and of a synthetic cleveref article
   (T-L6), and `cleveref/` the .aux of its synthetic `probe.tex` (the texts
   `tests/latexRefs.test.ts` expects are what pdfLaTeX printed for it); regenerate them from a
   compile of synthetic sources only.
@@ -741,11 +751,34 @@
   into the vault.
 - Desktop only (`isDesktopOnly: true`).
 - Never commit build artifacts (`main.js`, sourcemaps) or `node_modules`.
+- CI runs the complete Node suite on Windows and Linux, with a separate current
+  TinyTeX integration job on Linux and a native Windows texlab path regression.
+  The test runner bounds file concurrency to two and uses a private cache folder
+  per invocation. Windows process assertions use the system's native CIM query;
+  POSIX uses `pgrep` and never needs PowerShell installed. TeX source filenames
+  written into synthetic projects use forward slashes; native filesystem and
+  SyncTeX paths retain the host's spelling. License checks normalize CRLF only,
+  without dropping attribution or relaxing release sourcemap checks.
+  `texEnv` removes only inherited POSIX `C.UTF-8` locale values on Windows:
+  native Perl rejects them. Preserve other user locales and every POSIX value.
+  `sourceNavigation.test.ts` exercises all three engines in fast and full mode:
+  Unicode root/source paths, full-mode `include` aux files and a Unicode Biber
+  datasource, settled bibliography content, SyncTeX and actual vault navigation.
+  `tests/support/ghostscript.ts` keeps POSIX `gs` discovery and also checks the
+  native Windows console names and TeX Live `rungs` wrapper. Probe actual
+  initialization: the bundled bare EXE can print its version without locating
+  `gs_init.ps`. Installed-but-broken candidates fail validation instead of
+  silently dropping PDF-text comparisons. Export smoke passes PDF paths as
+  Ghostscript string arguments, preserving Windows separators and parentheses.
 - Verify with `npm run build`, `npm test` (integration tests need a TeX
   installation; `TEXBIN=/path/to/bin` overrides detection; the live texlab tests
   run when texlab is found, `TEXLAB_BIN` overrides), after a YOLO update
   `YOLO_MAIN=<vault>/.obsidian/plugins/yolo/main.js npm run test:yolo` (reads
-  only main.js, never data.json), and a smoke test
+  only main.js, never data.json). It loads the complete production Completion Only
+  plugin, with synthetic host modules and a streaming transport; request construction,
+  controllers, rendering, debounce and cancellation stay real. Keep structural binding
+  checks rather than release-number allowlists or minifier-name extraction. The fake
+  controller's golden key matrix remains part of `npm test`. Also run a smoke test
   in a real vault via `scripts/install-dev.sh <vault> [more vaults]`: open a `.tex` file,
   open the preview, edit, introduce an error, double-click the PDF, run
   "Show cursor position in preview", and try completion (`\fr` Tab,

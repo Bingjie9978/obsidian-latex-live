@@ -91,9 +91,9 @@ test("T-L7 bibFiles: \\addbibresource and \\bibliography of the project's source
       "\\addbibresource{refs.bib}\n% \\addbibresource{commented.bib}\n\\addbibresource[location=remote]{https://example.com/x.bib}\n\\addglobalbib{more}",
       "\\bibliographystyle{plainnat}\n\\bibliography{a, sub/b.bib}\n\\nobibliography{refs}",
     ],
-    "/book",
+    join(process.cwd(), "book"),
   );
-  assert.deepEqual(files, ["/book/refs.bib", "/book/more.bib", "/book/a.bib", "/book/sub/b.bib"]);
+  assert.deepEqual(files, ["refs.bib", "more.bib", "a.bib", "sub/b.bib"].map(file => join(process.cwd(), "book", file)));
 });
 
 test("T-L7 readBib: re-parsed when the file changes, unsaved buffers win, missing files are empty", () => {

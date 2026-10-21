@@ -29,7 +29,7 @@ import { CompiledPdf, LatexSession, SessionEvent, outDirFor } from "../src/sessi
 import { resolveTexBinDir, texEnv, texTool } from "../src/tex/binaries";
 import { CompileResult, Compiler } from "../src/tex/compiler";
 import { PdfBox, forwardSearchAll, synctexStamp } from "../src/tex/synctex";
-import { sleep, waitFor } from "./support/keyMatrix";
+import { waitFor } from "./support/keyMatrix";
 
 const box = (page: number, x: number, y: number, width: number, height: number): PdfBox => ({ page, x, y, width, height });
 const bottom = (b: PdfBox) => b.y + b.height;
@@ -517,13 +517,25 @@ const alive = (pid: number): boolean => {
 /** Processes whose command line mentions `text` (pgrep -f). */
 function pgrep(text: string): number[] {
   try {
+    if (process.platform === "win32") {
+      const script = [
+        "$ErrorActionPreference = 'Stop';",
+        "Get-CimInstance Win32_Process -Filter \"Name = 'xelatex.exe' OR Name = 'pdflatex.exe' OR Name = 'lualatex.exe' OR Name = 'synctex.exe' OR Name = 'latexmk.exe' OR Name = 'perl.exe'\"",
+        "| Where-Object { $_.CommandLine -and $_.CommandLine.Contains($env:LATEX_LIVE_PROCESS_PATH) }",
+        "| ForEach-Object ProcessId",
+      ].join(" ");
+      return execFileSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], {
+        encoding: "utf8", timeout: 5000, windowsHide: true,
+        env: { ...process.env, LATEX_LIVE_PROCESS_PATH: text },
+      }).split(/\r?\n/).map(s => s.trim()).filter(Boolean).map(Number);
+    }
     return execFileSync("pgrep", ["-f", text], { encoding: "utf8" }).split("\n").filter(Boolean).map(Number);
   } catch {
     return []; // pgrep exits 1 when nothing matches
   }
 }
 
-test("T-L12: no synctex or xelatex process is left after the crop service and the compiler are disposed", { skip: skip || (process.platform === "win32" && "pgrep"), timeout: 180_000 }, async () => {
+test("T-L12: no synctex or xelatex process is left after the crop service and the compiler are disposed", { skip, timeout: 180_000 }, async () => {
   const t = await compiledBook();
   try {
     const session = fakeSession(t.result, new Map([[t.ch1, t.text(t.ch1)], [t.ch2, t.text(t.ch2)]]), 2);
@@ -555,7 +567,7 @@ test("T-L12: no synctex or xelatex process is left after the crop service and th
     crops.dispose();
     t.compiler.dispose();
     for (const r of await Promise.all(renders)) assert.equal(r.ok, false, "stopped quietly");
-    await sleep(300);
+    await waitFor(() => [...tex, ...synctex].every(pid => !alive(pid)), 5000);
     const left = [...tex, ...synctex].filter(alive);
     assert.deepEqual(left, [], "every recorded process has exited");
     assert.deepEqual(pgrep(t.outDir), [], "nothing runs on the build folder");

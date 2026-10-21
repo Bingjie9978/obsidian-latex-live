@@ -14,7 +14,7 @@
 //   6. citation labels are the probe's biblatex numbers (natbib's `\bibcite`s), the bibliography
 //      lists the .bbl's entries.
 import assert from "node:assert/strict";
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -26,7 +26,7 @@ import { planExport, type ExportPlan } from "../src/export/plan";
 import { readProbeLog, type ProbeLog } from "../src/export/probeLog";
 import type { ExportReport } from "../src/export/report";
 import { walkTex, argText, type TexNode } from "../src/export/texTree";
-import { readAuxLabels } from "../src/tex/aux";
+import { readAuxLabels } from "../src/tex/auxData";
 import { texTool } from "../src/tex/binaries";
 import { projectDefinitions } from "../src/tex/macros";
 import { stripComments } from "../src/tex/project";
@@ -34,9 +34,10 @@ import { texText } from "../src/tex/texText";
 import { ELEGANT_SCHEMES, theoremMap } from "../src/tex/theorems";
 import { contrast } from "../src/export/profiles";
 import { fixtureCopy, nodeExportHost, removeExportTemps, testPng, texBin, type NodeExportHost } from "./support/exportHost";
+import { ghostscript } from "./support/ghostscript";
 
 const skip = !texBin ? "no TeX installation found" : !existsSync(texTool(texBin, "xelatex")) ? "no XeLaTeX" : false;
-const gs = spawnSync("gs", ["--version"]).status === 0 ? "gs" : null;
+const gs = ghostscript(texBin);
 
 interface Exported {
   root: string;
@@ -95,7 +96,7 @@ const text = (html: string) =>
 const squeeze = (s: string) => s.replace(/[\s ]+/g, "");
 
 /** The text of a PDF (Ghostscript's txtwrite; the Fandol glyphs come out as other characters, ASCII is kept). */
-const pdfText = (pdf: string) => execFileSync(gs!, ["-q", "-dNOPAUSE", "-dBATCH", "-sDEVICE=txtwrite", "-sOutputFile=-", pdf], { encoding: "utf8", maxBuffer: 64 << 20 });
+const pdfText = (pdf: string) => execFileSync(gs!, ["-q", "-dNOPAUSE", "-dBATCH", "-sDEVICE=txtwrite", "-sOutputFile=-", pdf], { encoding: "utf8", maxBuffer: 64 << 20, timeout: 20000, windowsHide: true });
 
 /** The equation tags a PDF prints: a parenthesized number last on its line (a box's frame glyph may follow). */
 const pdfTags = (pdf: string) =>

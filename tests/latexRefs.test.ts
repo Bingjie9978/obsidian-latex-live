@@ -1,5 +1,5 @@
 // T-L6: what reference chips say (latexRefs), checked against what pdfLaTeX printed for the
-// synthetic probe tests/fixtures/aux/cleveref/probe.tex (hyperref, cleveref, amsthm; TeX Live
+// synthetic probe tests/fixtures/aux-data/cleveref/probe.tex (hyperref, cleveref, amsthm; TeX Live
 // 2026) under four preambles, read back from each PDF; and the elegantbook item numbers whose
 // colour used to leak into chips.
 import assert from "node:assert/strict";
@@ -8,9 +8,9 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { DEFAULT_REF_NAMES, LatexRefs, RefNames, refNames, refText, sameRefNames } from "../src/editor/latexRefs";
-import { readAuxLabels } from "../src/tex/aux";
+import { readAuxLabels } from "../src/tex/auxData";
 
-const labels = readAuxLabels(resolve("tests/fixtures/aux/cleveref"));
+const labels = readAuxLabels(resolve("tests/fixtures/aux-data/cleveref"));
 const refs = (names: RefNames): LatexRefs => ({ numbers: new Map(), labels, cites: new Map(), names, theorems: new Map(), checkpoints: new Map() });
 
 /** The probe's preambles: the cleveref options and the lines after its \newtheorem's. */

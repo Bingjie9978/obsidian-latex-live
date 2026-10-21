@@ -2,7 +2,7 @@
 // the synthetic elegantbook fixture (tests/fixtures/elegantbook).
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { join, resolve } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { definitionStatements, projectDefinitions } from "../src/tex/macros";
@@ -107,7 +107,7 @@ test("definitionStatements: definer aliases, @ internals, \\makeatletter blocks,
 test("projectDefinitions: the fixture's statements in document order, packages and files", () => {
   const d = projectDefinitions(join(BOOK, "main.tex"));
   assert.deepEqual(
-    d.files.map((f) => f.slice(BOOK.length + 1)),
+    d.files.map((f) => f.slice(BOOK.length + 1).split(sep).join("/")),
     ["main.tex", "booknotes.sty", "macros.tex", "chapters/ch1.tex", "chapters/ch2.tex"],
   );
   // booknotes.sty (\usepackage) comes before macros.tex (\input), ch2's \Lip last.

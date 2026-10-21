@@ -90,6 +90,9 @@ export function resolveTexlab(configured: string): string | null {
  * active document, where texlab finds the .aux for label numbers ("Equation (2)").
  */
 export function texlabSettings(outDir: string | null): Record<string, unknown> {
+  // texlab resolves these values as URLs. A Windows drive path is parsed as
+  // a non-hierarchical `c:` URL and crashes dependency discovery (issue #2).
+  const output = outDir ? pathToFileURL(outDir).href : null;
   return {
     completion: { matcher: "fuzzy-ignore-case" },
     hover: { symbols: "glyph" },
@@ -97,7 +100,7 @@ export function texlabSettings(outDir: string | null): Record<string, unknown> {
     diagnosticsDelay: 300,
     latexFormatter: "none",
     bibtexFormatter: "texlab",
-    ...(outDir ? { build: { auxDirectory: outDir, pdfDirectory: outDir } } : {}),
+    ...(output ? { build: { auxDirectory: output, pdfDirectory: output } } : {}),
   };
 }
 

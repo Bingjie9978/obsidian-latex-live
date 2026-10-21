@@ -19,7 +19,7 @@ import { livePreview, renderStats } from "../src/editor/shared/livePreview";
 import { showTexDiagnostics, texEditorExtensions } from "../src/editor/texExtensions";
 import { TexCrops, TexRender } from "../src/editor/texRender";
 import { NOTE_CHANGED } from "../src/preview/blockCrop";
-import { readAuxLabels } from "../src/tex/aux";
+import { readAuxLabels } from "../src/tex/auxData";
 import { theoremMap } from "../src/tex/theorems";
 import type { TemplateVisualizationProfile } from "../src/editor/templateVisualization";
 import { press, sleep, waitFor } from "./support/keyMatrix";
@@ -464,7 +464,7 @@ test("T-L8 #7: an \\item label with math stays in place, its formula rendered an
 test("T-L8 #9-#11: chips from the build folder's labels and the bibliography, as the PDF prints them (English names under elegantbook lang=cn too)", async () => {
   const p = await project();
   try {
-    cpSync(resolve("tests/fixtures/aux/book"), p.outDir, { recursive: true });
+    cpSync(resolve("tests/fixtures/aux-data/book"), p.outDir, { recursive: true });
     const doc = [
       "见 \\ref{eq:var-def}、\\eqref{eq:var-short}、\\autoref{thm:total-exp}、\\cref{eq:total-exp}、\\Cref{chap:prob}、",
       "\\cref{fig:grid,tab:decomp}、\\cref{eq:var-def,eq:trace}、\\pageref{pro:psd}、\\nameref{chap:linalg}、\\ref{nope}。",
@@ -505,7 +505,7 @@ test("T-L8 #9-#11: chips from the build folder's labels and the bibliography, as
 test("T-L8 reference names: hyperref's by the anchor, cleveref's by the .aux type with the project's options", async () => {
   const p = await project();
   try {
-    const labels = readAuxLabels(resolve("tests/fixtures/aux/article"));
+    const labels = readAuxLabels(resolve("tests/fixtures/aux-data/article"));
     const doc =
       "\\autoref{eq:bv-expand} \\cref{eq:wstar} \\Cref{def:linear} \\cref{fig:curve} \\autoref{app:derivations} " +
       "\\cref{lem:plain} \\ref{it:tight} \\autoref{fn:toy} \\cref{sec:intro,app:derivations} \\eqref{eq:wstar} \\autoref{nope}\n" +
@@ -549,7 +549,7 @@ test("T-L8 chips follow the refs: a compile result, a saved .bib and a view open
   try {
     const view = await p.mount("\\ref{eq:var-def} \\cite{li2019lln}\n");
     assert.deepEqual(chips(view), ["!??", "[Li et al. 2019]"], "nothing compiled yet");
-    cpSync(resolve("tests/fixtures/aux/book"), p.outDir, { recursive: true });
+    cpSync(resolve("tests/fixtures/aux-data/book"), p.outDir, { recursive: true });
     p.render.compiled(p.root);
     await waitFor(() => chips(view)[0] === "1.2");
 
@@ -729,7 +729,7 @@ const BOOK_BOXES = [
 test("T-L9 #12: elegantbook's boxes with their heads as the PDF prints them, numbers from the .aux, the scheme's colours", async () => {
   const p = await project();
   try {
-    cpSync(resolve("tests/fixtures/aux/book"), p.outDir, { recursive: true });
+    cpSync(resolve("tests/fixtures/aux-data/book"), p.outDir, { recursive: true });
     const view = await p.mount(BOOK_BOXES, undefined, BOOK_BOXES.length);
     assert.deepEqual(shown(view), [
       "│ [定义 1.1 (概率空间 Probability space)]",
@@ -781,7 +781,7 @@ test("T-L9 #12: elegantbook's boxes with their heads as the PDF prints them, num
 test("T-L9 reveal: the \\begin and \\end lines each on their own; editing the body keeps the box; ArrowDown enters the collapsed \\end line", async () => {
   const p = await project();
   try {
-    cpSync(resolve("tests/fixtures/aux/book"), p.outDir, { recursive: true });
+    cpSync(resolve("tests/fixtures/aux-data/book"), p.outDir, { recursive: true });
     const doc = ["top", "\\begin{theorem}{全期望公式}{total-exp}", "  body $x$", "  more", "\\end{theorem}", "end"].join("\n");
     const view = await p.mount(doc, undefined, 0);
     const line = (n: number) => view.state.doc.line(n);
@@ -814,7 +814,7 @@ test("T-L9 reveal: the \\begin and \\end lines each on their own; editing the bo
 
 test("T-L9 a move inside a long box re-decorates only the constructs on its lines; one onto its \\begin line, the box", async () => {
   const p = await project();
-  cpSync(resolve("tests/fixtures/aux/book"), p.outDir, { recursive: true });
+  cpSync(resolve("tests/fixtures/aux-data/book"), p.outDir, { recursive: true });
   // 190 body lines (an environment spans at most 200), two formulas each.
   const body = Array.from({ length: 190 }, (_, i) => `  line ${i} with $x_{${i}}$ and $y_{${i}}$.`);
   const doc = ["top", "\\begin{theorem}{全期望公式}{total-exp}", ...body, "\\end{theorem}", "\\begin{quote}", ...body, "\\end{quote}", "end"].join("\n");

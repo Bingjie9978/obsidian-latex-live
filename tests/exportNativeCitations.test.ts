@@ -3,7 +3,7 @@
 // explicit expected text and with extracted PDF text. No citation is executed by the probe
 // merely to identify the active formatter.
 import assert from "node:assert/strict";
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -12,10 +12,11 @@ import { JSDOM } from "jsdom";
 import { exportHtml } from "../src/export/exporter";
 import { readProbeLog } from "../src/export/probeLog";
 import { nodeExportHost, removeExportTemps, texBin } from "./support/exportHost";
+import { ghostscript } from "./support/ghostscript";
 
 const dirs: string[] = [];
 after(() => { removeExportTemps(); for (const dir of dirs) rmSync(dir, { recursive: true, force: true }); });
-const gs = spawnSync("gs", ["--version"]).status === 0;
+const gs = ghostscript(texBin);
 const skip = !texBin ? "no TeX installation" : !gs ? "Ghostscript required for independent native PDF citation comparison" : false;
 const compact = (s: string) => s.replace(/\s+/g, "");
 const bibliography = String.raw`\begin{thebibliography}{3}
@@ -48,7 +49,7 @@ for (const c of cases) test(`native citations: ${c.name}`, { skip, timeout: 90_0
   const { html, report } = await exportHtml(root, host, () => {}, new AbortController().signal);
   const document = new JSDOM(html).window.document;
   const actual = [...document.querySelectorAll(".llx-cite")].map(e => (e.textContent ?? "").replace(/\s+/g, " ").trim());
-  const pdf = execFileSync("gs", ["-q", "-dNOPAUSE", "-dBATCH", "-sDEVICE=txtwrite", "-sOutputFile=-", join(host.buildDir, "main.pdf")]).toString("utf8");
+  const pdf = execFileSync(gs!, ["-q", "-dNOPAUSE", "-dBATCH", "-sDEVICE=txtwrite", "-sOutputFile=-", join(host.buildDir, "main.pdf")], { timeout: 20000, windowsHide: true }).toString("utf8");
   const log = readProbeLog(readFileSync(join(host.workDir, "main.llx"), "utf8"));
   if (process.env.NATIVE_CITATION_AUDIT_OUT) {
     const out = join(process.env.NATIVE_CITATION_AUDIT_OUT, c.name.replace(/[^A-Za-z0-9]+/g, "-")); mkdirSync(out, { recursive: true });

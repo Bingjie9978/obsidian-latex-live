@@ -172,6 +172,12 @@ export class Compiler {
       o.engine === "xelatex" ? "-pdfxe" : o.engine === "lualatex" ? "-pdflua" : "-pdf";
     // latexmk takes biber from PATH (binDir first); point it at one that runs.
     const biber = await workingBiber(o.binDir);
+    // latexmk's Windows launcher round-trips -e through a command line, which can
+    // flatten newlines and turn a Perl comment into the rest of the hook. An rc
+    // file preserves the program exactly on every platform and still composes
+    // with the distribution's and project's normal rc files.
+    const hookFile = join(o.outDir, "latex-live.latexmkrc");
+    await fsp.writeFile(hookFile, logreqDependencyHook(await fsp.realpath(o.outDir), this.jobName));
     const args = [
       flag,
       "-interaction=nonstopmode",
@@ -183,7 +189,7 @@ export class Compiler {
       // at the end of a biblatex run. Its active flag alone otherwise causes one extra TeX pass
       // after aux/bbl/out/bcf have converged. The public latexmk hook removes only this job's
       // recorder-confirmed generated ledger, preserving every real XML input and existing hook.
-      "-e", logreqDependencyHook(await fsp.realpath(o.outDir), this.jobName),
+      "-r", hookFile,
       ...(o.shellEscape ? ["-shell-escape"] : []),
       ...(biber && biber !== texTool(o.binDir, "biber")
         ? ["-e", `$biber = q{"${biber}" %O %S}`]

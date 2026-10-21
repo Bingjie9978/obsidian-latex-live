@@ -21,7 +21,7 @@ import { planExport, reparse } from "../../src/export/plan";
 import { readProbeLog, StepQueue } from "../../src/export/probeLog";
 import { profileOf, type Profile } from "../../src/export/profiles";
 import { ReportBuilder } from "../../src/export/report";
-import { readAuxLabels } from "../../src/tex/aux";
+import { readAuxLabels } from "../../src/tex/auxData";
 import { parseBib } from "../../src/tex/bib";
 import { resolveTexBinDir } from "../../src/tex/binaries";
 import { CompileResult, Compiler } from "../../src/tex/compiler";

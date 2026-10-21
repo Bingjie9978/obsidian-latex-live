@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { join, resolve } from "node:path";
 import { collectFrontmatter, type FrontmatterPart } from "../src/export/frontmatter";
 import type { ExportPlan, PlanFile } from "../src/export/plan";
 import { projectSignatures } from "../src/export/signatures";
@@ -21,10 +22,11 @@ function fixture(cls: string, preamble: string, body: string, inputs: Record<str
   const sig = { ...base, macros: new Map([...base.macros, ...metadata]) };
   const source = `\\documentclass{${cls}}\n${preamble}\n\\begin{document}\n${body}\n\\end{document}`;
   const files = new Map<string, PlanFile>();
-  for (const [key, src] of Object.entries({ "main.tex": source, ...inputs })) files.set(key, { key, abs: `/virtual/${key}`, src, nodes: parseTex(src, sig), lines: [0] });
+  const rootDir = resolve("/virtual");
+  for (const [key, src] of Object.entries({ "main.tex": source, ...inputs })) files.set(key, { key, abs: join(rootDir, key), src, nodes: parseTex(src, sig), lines: [0] });
   return {
-    root: "/virtual/main.tex", rootDir: "/virtual", rootKey: "main.tex", job: "main", sig, files,
-    visits: [{ key: "main.tex", occ: 0, parent: -1, parentLine: 0, inputDirs: ["/virtual"], bodyOnly: true }],
+    root: join(rootDir, "main.tex"), rootDir, rootKey: "main.tex", job: "main", sig, files,
+    visits: [{ key: "main.tex", occ: 0, parent: -1, parentLine: 0, inputDirs: [rootDir], bodyOnly: true }],
     inputTargets: new Map(), inputKeys: new Map(), sourceAliases: new Map(), fragments: [], copies: new Map(), environmentExpansions: new Map(),
     probe: { names: [], colors: [], envs: [] }, includeOnly: null, missing: new Map(),
   };
@@ -253,7 +255,7 @@ test("known body input visit is retained and the first maketitle inside it freez
     "metadata.tex": String.raw`\title{Body input title}\author[1]{Ada}\affil[1]{Body Lab}\maketitle`,
   });
   const input = bodyNodes(plan).find(node => node.t === "macro" && node.name === "input")!;
-  plan.visits.push({ key: "metadata.tex", occ: 0, parent: 0, parentLine: 1, inputDirs: ["/virtual"], bodyOnly: false });
+  plan.visits.push({ key: "metadata.tex", occ: 0, parent: 0, parentLine: 1, inputDirs: [plan.rootDir], bodyOnly: false });
   plan.inputTargets.set(`0@${input.from}`, 1);
   const front = collectFrontmatter(plan);
   assert.equal(front.title?.file.key, "metadata.tex");

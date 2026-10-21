@@ -8,7 +8,7 @@ import { projectDefinitions } from "../src/tex/macros";
 import { theoremMap } from "../src/tex/theorems";
 import { stripComments } from "../src/tex/project";
 import { planExport } from "../src/export/plan";
-import type { AuxLabel } from "../src/tex/aux";
+import type { AuxLabel } from "../src/tex/auxData";
 
 const temps: string[] = [];
 after(() => { for (const dir of temps) rmSync(dir, { recursive: true, force: true }); });

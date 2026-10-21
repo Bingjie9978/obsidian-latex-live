@@ -62,18 +62,19 @@ const reviver = (_k, v) => (v && typeof v === "object" && !Array.isArray(v) ? ("
 
 // Node: build, plan, probe and fragments of a fresh fixture copy.
 const NODE_ENTRY = String.raw`
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { prepareExport } from "./src/export/exporter";
 import { fixtureCopy, nodeExportHost, removeExportTemps, testPng, texBin } from "./tests/support/exportHost";
+import { ghostscript } from "./tests/support/ghostscript";
 ${TAGGED}
-const gs = spawnSync("gs", ["--version"]).status === 0;
+const gs = ghostscript(texBin);
 
 /** PDF pages at 144 dpi through Ghostscript (Obsidian draws them with pdf.js at 2x); a blank page without it. */
 async function pdfImages(abs, want) {
   if (!gs) return want(1).map((page) => ({ page, png: testPng(2, 1), width: 419.5, height: 595.3 }));
-  const count = Number(execFileSync("gs", ["-q", "-dNODISPLAY", "-dNOSAFER", "-c", "(" + abs + ") (r) file runpdfbegin pdfpagecount = quit"], { encoding: "utf8" }).trim());
+  const count = Number(execFileSync(gs, ["-q", "-dNODISPLAY", "-dNOSAFER", "-sLLPdfFile=" + abs, "-c", "LLPdfFile (r) file runpdfbegin pdfpagecount = quit"], { encoding: "utf8", timeout: 20000, windowsHide: true }).trim());
   return want(count).map((page) => {
-    const png = execFileSync("gs", ["-q", "-dNOPAUSE", "-dBATCH", "-sDEVICE=png16m", "-r144", "-dFirstPage=" + page, "-dLastPage=" + page, "-sOutputFile=-", abs], { maxBuffer: 64 << 20 });
+    const png = execFileSync(gs, ["-q", "-dNOPAUSE", "-dBATCH", "-sDEVICE=png16m", "-r144", "-dFirstPage=" + page, "-dLastPage=" + page, "-sOutputFile=-", abs], { maxBuffer: 64 << 20, timeout: 20000, windowsHide: true });
     return { page, png: new Uint8Array(png), width: png.readUInt32BE(16) / 2, height: png.readUInt32BE(20) / 2 };
   });
 }

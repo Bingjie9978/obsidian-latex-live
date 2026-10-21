@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, relative, sep } from "node:path";
 import { after, test } from "node:test";
 import { applyProjectEdits, indexProjectLabels, previewEnvironmentRename, previewLabelRename, previewReplace, searchProject, undoProjectEdits, type EditState, type ProjectEditHost } from "../src/tex/projectEdits";
 import { normalizedText, projectBodyFiles, readProjectSnapshot, type ProjectSnapshot } from "../src/tex/projectIndex";
@@ -39,7 +39,7 @@ test("snapshots follow current root, ../ inputs, preamble inputs, imports, inclu
     "paper/parts/a.tex": String.raw`\input{b}`, "paper/parts/b.tex": "Imported child.\n",
     "paper/enabled.tex": "Enabled.\n", "paper/disabled.tex": "Must be excluded.\n", "paper/unrelated.tex": "Unrelated.\n",
   }, { "shared.tex": "Shared unsaved.\n" }, String.raw`\input{setup}\includeonly{enabled}`);
-  assert.deepEqual(t.snapshot.files.map(file => file.path.replace(t.dir + "/", "")).sort(), ["paper/enabled.tex", "paper/main.tex", "paper/parts/a.tex", "paper/parts/b.tex", "paper/setup.tex", "shared.tex"]);
+  assert.deepEqual(t.snapshot.files.map(file => relative(t.dir, file.path).split(sep).join("/")).sort(), ["paper/enabled.tex", "paper/main.tex", "paper/parts/a.tex", "paper/parts/b.tex", "paper/setup.tex", "shared.tex"]);
   assert.equal(t.snapshot.files.find(file => file.path === join(t.dir, "shared.tex"))?.text, "Shared unsaved.\n");
   assert.ok(projectBodyFiles(t.snapshot).some(file => file.path === join(t.dir, "shared.tex")));
   assert.ok(!projectBodyFiles(t.snapshot).some(file => file.path.endsWith("setup.tex")));

@@ -1,4 +1,4 @@
-import type { AuxLabel } from "./aux";
+import type { AuxLabel } from "./auxData";
 import { theoremMap, type TheoremDef, type TheoremMap } from "./theorems";
 import { texText } from "./texText";
 import { isFileInput, lineAt, visitNodes, type ExportPlan, type PlanFile } from "../export/plan";

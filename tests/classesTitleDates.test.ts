@@ -2,7 +2,7 @@
 // These fresh generated documents are built and exported with real TeX; ASCII dates are
 // compared with the resulting PDF text. \today also renders in the body without a title.
 import assert from "node:assert/strict";
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -12,9 +12,10 @@ import { readProbeLog } from "../src/export/probeLog";
 import { texTool } from "../src/tex/binaries";
 import { texText } from "../src/tex/texText";
 import { nodeExportHost, removeExportTemps, texBin } from "./support/exportHost";
+import { ghostscript } from "./support/ghostscript";
 
 const skip = !texBin ? "no TeX installation" : !existsSync(texTool(texBin, "xelatex")) ? "no XeLaTeX" : false;
-const gs = spawnSync("gs", ["--version"]).status === 0;
+const gs = ghostscript(texBin);
 const dirs: string[] = [];
 after(() => { removeExportTemps(); for (const dir of dirs) rmSync(dir, { recursive: true, force: true }); });
 
@@ -57,7 +58,7 @@ for (const [i, c] of cases.entries()) test(`class date ${i + 1}: ${c.cls}, ${c.d
   assert.ok(squeeze(text(html.split("</header>")[1])).includes(squeeze(`Body date: ${today}.`)));
   if ("today" in c) assert.equal(today, c.today);
   if (gs && cls !== "ctexart") {
-    const pdf = execFileSync("gs", ["-q", "-dNOPAUSE", "-dBATCH", "-sDEVICE=txtwrite", "-sOutputFile=-", join(host.buildDir, "main.pdf")], { encoding: "utf8" });
+    const pdf = execFileSync(gs, ["-q", "-dNOPAUSE", "-dBATCH", "-sDEVICE=txtwrite", "-sOutputFile=-", join(host.buildDir, "main.pdf")], { encoding: "utf8", timeout: 20000, windowsHide: true });
     assert.ok(squeeze(pdf).includes(squeeze(`Body date: ${today}.`)), pdf);
     if (c.shown) assert.ok(squeeze(pdf).split(squeeze(today)).length >= 3, "PDF date appears in both title and body");
   }

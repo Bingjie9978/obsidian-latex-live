@@ -420,7 +420,7 @@ test("TexRender refs: labels with kinds, the project's bibliography and referenc
     assert.equal(first.names.autoref.get("equation"), "Equation", "hyperref's names: elegantbook with lang=cn prints English ones");
     assert.deepEqual(first.names.cref.get("equation"), ["eq.", "eqs."], "cleveref's defaults");
 
-    cpSync(resolve("tests/fixtures/aux/book"), t.outDir, { recursive: true });
+    cpSync(resolve("tests/fixtures/aux-data/book"), t.outDir, { recursive: true });
     t.render.compiled(t.root);
     await sleep(5);
     const compiled = t.render.refsOf(t.root);
@@ -491,7 +491,7 @@ test("TexRender hover: a block formula shows its PDF crop, else MathJax; a block
     locate: () => ({ note: NOTE_NO_PREVIEW }),
     render: async () => ({ ok: false, message: "unused", quiet: true }),
     hover: async (_root, file, text, line, kind, wait) => {
-      asked.push(`${file.split("/").pop()}:${line}:${kind}:${wait}:${text.split("\n")[0]}`);
+      asked.push(`${file.split(/[\\/]/).pop()}:${line}:${kind}:${wait}:${text.split("\n")[0]}`);
       return answer;
     },
   };

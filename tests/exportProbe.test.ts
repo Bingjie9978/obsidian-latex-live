@@ -9,7 +9,7 @@ import { prepareWorkDir, runProbe } from "../src/export/probe";
 import { readProbeLog, StepQueue, tocEntry } from "../src/export/probeLog";
 import type { ExportReport } from "../src/export/report";
 import { walkTex, type TexNode } from "../src/export/texTree";
-import { readAuxLabels } from "../src/tex/aux";
+import { readAuxLabels } from "../src/tex/auxData";
 import { texTool } from "../src/tex/binaries";
 import { projectDefinitions } from "../src/tex/macros";
 import { stripComments } from "../src/tex/project";

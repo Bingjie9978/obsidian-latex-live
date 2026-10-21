@@ -13,7 +13,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { test } from "node:test";
 import type { ChildProcess } from "node:child_process";
-import { readAuxDefinitions } from "../src/tex/aux";
+import { readAuxDefinitions } from "../src/tex/auxData";
 import { resolveTexBinDir, texEnv, texTool } from "../src/tex/binaries";
 import { CompileResult, Compiler, readyPreambleFormat } from "../src/tex/compiler";
 import {
@@ -99,7 +99,7 @@ test("fragmentSource: the format's placeholder or the whole preamble, the labels
 });
 
 test("parseFragmentLog: boxes from the snippet lines, errors by fragment lines or the preamble's", () => {
-  const file = "/project/out/snippets/frag-1.tex";
+  const file = resolve("/project/out/snippets/frag-1.tex");
   const log = [
     "Preview: Fontsize 10pt",
     `${file}:12: Preview: Snippet 1 started.`,

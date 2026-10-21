@@ -1,6 +1,6 @@
 import { readFileSync } from "fs";
 import { dirname, join } from "path";
-import { readAuxDefinitions } from "../tex/aux";
+import { readAuxDefinitions } from "../tex/auxData";
 import { readyPreambleFormat } from "../tex/compiler";
 import { FragmentJob, FragmentOutput, FragmentQueue, bodyStamp, fragmentContext, fragmentResult, preambleParts } from "../tex/fragment";
 import { EngineSetting, detectEngine, preambleOf } from "../tex/project";

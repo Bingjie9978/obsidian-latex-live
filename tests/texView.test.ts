@@ -229,7 +229,7 @@ test("a file reopened in a live view gets its undo history back in live mode (Hi
 test("a document opened in a view reads its root's refs again (a compile that ran elsewhere); .bib files have no constructs", async () => {
   const t = await texView("live");
   try {
-    cpSync(resolve("tests/fixtures/aux/book"), t.out, { recursive: true }); // an earlier compile
+    cpSync(resolve("tests/fixtures/aux-data/book"), t.out, { recursive: true }); // an earlier compile
     // From the decorations: jsdom draws a viewport that depends on its (absent) layout.
     const chips = () => {
       const out: string[] = [];

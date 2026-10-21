@@ -3,7 +3,7 @@ import type { EditorView } from "@codemirror/view";
 import { readFileSync } from "fs";
 import { dirname, extname } from "path";
 import { CropKind, CropLocation, NOTE_CHANGED } from "../preview/blockCrop";
-import { AuxCheckpoint, AuxLabel, readAuxCheckpoints, readAuxLabels } from "../tex/aux";
+import { AuxCheckpoint, AuxLabel, readAuxCheckpoints, readAuxLabels } from "../tex/auxData";
 import { BibEntry, bibFiles, readBib } from "../tex/bib";
 import { IMAGE_FORMATS, findGraphics, graphicsPaths } from "../tex/graphics";
 import { projectDefinitions, type Definitions } from "../tex/macros";

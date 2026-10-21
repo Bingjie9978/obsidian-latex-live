@@ -138,7 +138,10 @@ function lineStarts(src: string): number[] {
 /** The key of a file as `\input{name}` names it from the root's folder (`.tex` added when it has no extension). */
 export function inputKey(rootDir: string, name: string): string | null {
   const trimmed = literalTexPath(name);
-  if (!trimmed || /[\\#]/.test(trimmed)) return null;
+  // Source names containing TeX commands are not literal paths. Resolved native
+  // absolute paths also enter here, and Windows uses backslashes in those paths.
+  if (!trimmed || trimmed.includes("#") ||
+      (trimmed.includes("\\") && !(process.platform === "win32" && isAbsolute(trimmed)))) return null;
   const withExt = extname(trimmed) ? trimmed : `${trimmed}.tex`;
   const abs = isAbsolute(withExt) ? withExt : resolve(rootDir, withExt);
   const rel = relative(rootDir, abs);

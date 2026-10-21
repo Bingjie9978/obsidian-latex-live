@@ -261,7 +261,8 @@ test("dispose kills a running compile", { skip }, async () => {
   await new Promise((r) => setTimeout(r, 400));
   assert.equal(h.compiler.compiling, true);
   h.compiler.dispose();
-  await new Promise((r) => setTimeout(r, 300));
+  const deadline = Date.now() + 5000;
+  while (h.compiler.compiling && Date.now() < deadline) await new Promise((r) => setTimeout(r, 25));
   assert.equal(h.compiler.compiling, false);
 });
 

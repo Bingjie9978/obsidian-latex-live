@@ -1,5 +1,5 @@
 import { execFile, spawnSync } from "child_process";
-import { existsSync } from "fs";
+import { existsSync, readdirSync } from "fs";
 import { homedir } from "os";
 import { delimiter, dirname, join } from "path";
 
@@ -11,8 +11,7 @@ function candidateDirs(): string[] {
     const local = process.env.LOCALAPPDATA ?? join(homedir(), "AppData", "Local");
     return [
       join(local, "Programs", "MiKTeX", "miktex", "bin", "x64"),
-      "C:\\texlive\\2026\\bin\\windows",
-      "C:\\texlive\\2025\\bin\\windows",
+      ...texLiveWindowsDirs(),
     ];
   }
   return [
@@ -27,13 +26,26 @@ function candidateDirs(): string[] {
   ];
 }
 
+/** TeX Live installs in year-named folders; discover them without a release-year pin. */
+function texLiveWindowsDirs(): string[] {
+  const root = join(process.env.SystemDrive ?? "C:", "texlive");
+  try {
+    return readdirSync(root, { withFileTypes: true })
+      .filter(entry => entry.isDirectory() && /^\d{4}$/.test(entry.name))
+      .sort((a, b) => b.name.localeCompare(a.name, "en"))
+      .map(entry => join(root, entry.name, "bin", "windows"));
+  } catch {
+    return [];
+  }
+}
+
 /**
- * Directory containing the TeX binaries: the configured one, a common
- * install location, or whatever the login shell's PATH finds.
+ * Directory containing the TeX binaries: the configured one, the user's
+ * selected PATH installation, then standard GUI install locations.
  */
 export function resolveTexBinDir(configured: string): string | null {
   const probe = `pdflatex${EXE}`;
-  const dirs = configured.trim() ? [configured.trim()] : candidateDirs();
+  const dirs = configured.trim() ? [configured.trim()] : (process.env.PATH ?? "").split(delimiter).filter(Boolean);
   for (const d of dirs) {
     if (existsSync(join(d, probe))) return d;
   }
@@ -47,7 +59,8 @@ export function resolveTexBinDir(configured: string): string | null {
     res.status === 0
       ? res.stdout.split(/\r?\n/).map((s) => s.trim()).find(Boolean)
       : undefined;
-  return found ? dirname(found) : null;
+  if (found && existsSync(found)) return dirname(found);
+  return candidateDirs().find(dir => existsSync(join(dir, probe))) ?? null;
 }
 
 /**
@@ -55,13 +68,22 @@ export function resolveTexBinDir(configured: string): string | null {
  * lines so file paths and messages are not wrapped at 79 columns.
  */
 export function texEnv(binDir: string): NodeJS.ProcessEnv {
-  return {
+  const env: NodeJS.ProcessEnv = {
     ...process.env,
     PATH: [binDir, process.env.PATH ?? ""].filter(Boolean).join(delimiter),
     max_print_line: "10000",
     error_line: "254",
     half_error_line: "238",
   };
+  if (process.platform === "win32") {
+    // Agent hosts may export this POSIX-only locale into native Windows apps.
+    // TeX Live's Windows Perl rejects it; preserve native/user locales and let
+    // Windows choose its normal locale when only this inherited value is present.
+    for (const key of ["LANG", "LC_ALL", "LC_CTYPE", "LC_NUMERIC", "LC_TIME", "LC_COLLATE", "LC_MONETARY", "LC_MESSAGES"]) {
+      if (/^(?:C|POSIX)\.UTF-?8$/i.test(env[key] ?? "")) delete env[key];
+    }
+  }
+  return env;
 }
 
 export function texTool(binDir: string, name: string): string {

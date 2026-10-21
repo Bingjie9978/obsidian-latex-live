@@ -11,9 +11,10 @@ import { exportHtml } from "../src/export/exporter";
 import { readProbeLog } from "../src/export/probeLog";
 import { texTool } from "../src/tex/binaries";
 import { nodeExportHost, removeExportTemps, texBin } from "./support/exportHost";
+import { ghostscript } from "./support/ghostscript";
 
-const skip = !texBin ? "no TeX installation" : spawnSync(texTool(texBin, "kpsewhich"), ["acmart.cls"]).status !== 0 ? "no ACM class" : false;
-const gs = spawnSync("gs", ["--version"]).status === 0;
+const skip = !texBin ? "no TeX installation" : spawnSync(texTool(texBin, "kpsewhich"), ["acmart.cls"], { timeout: 5000, windowsHide: true }).status !== 0 ? "no ACM class" : false;
+const gs = ghostscript(texBin);
 const dirs: string[] = [];
 after(() => { removeExportTemps(); for (const dir of dirs) rmSync(dir, { recursive: true, force: true }); });
 
@@ -78,14 +79,14 @@ PRIVATE\_SUP: an original synthetic supplementary statement.
   }
   if (gs) {
     const pdf = join(host.buildDir, "main.pdf");
-    const visiblePdf = normalized(execFileSync("gs", ["-q", "-dNOPAUSE", "-dBATCH", "-sDEVICE=txtwrite", "-sOutputFile=-", pdf], { encoding: "utf8" }));
+    const visiblePdf = normalized(execFileSync(gs, ["-q", "-dNOPAUSE", "-dBATCH", "-sDEVICE=txtwrite", "-sOutputFile=-", pdf], { encoding: "utf8", timeout: 20000, windowsHide: true }));
     for (const marker of ["PUBLIC_ABSTRACT", "PUBLIC_KEYWORD", "PUBLIC_BODY"]) assert.ok(visiblePdf.includes(normalized(marker)), marker);
     // ACM prints ORCID as the author's hyperlink, not visible ID text. Check its native PDF
     // link object separately rather than pretending Ghostscript extracts an invisible glyph.
     // pdfTeX compresses annotations inside object streams. Ask the established PDF engine
     // to expose the original link objects rather than searching compressed bytes for text.
     const expandedPdf = join(dir, "annotations.pdf");
-    execFileSync("gs", ["-q", "-dNOPAUSE", "-dBATCH", "-sDEVICE=pdfwrite", "-dCompatibilityLevel=1.4", "-dCompressPages=false", "-dCompressFonts=false", "-dCompressStreams=false", "-dWriteObjStms=false", "-dWriteXRefStm=false", `-sOutputFile=${expandedPdf}`, pdf]);
+    execFileSync(gs, ["-q", "-dNOPAUSE", "-dBATCH", "-sDEVICE=pdfwrite", "-dCompatibilityLevel=1.4", "-dCompressPages=false", "-dCompressFonts=false", "-dCompressStreams=false", "-dWriteObjStms=false", "-dWriteXRefStm=false", `-sOutputFile=${expandedPdf}`, pdf], { timeout: 20000, windowsHide: true });
     const rawPdf = readFileSync(expandedPdf).toString("latin1");
     for (const marker of markers.filter((m) => m !== "PRIVATE_ORCID")) assert.equal(visiblePdf.includes(normalized(marker)), !anonymous, `${marker}: native PDF visibility`);
     assert.equal(rawPdf.includes("PRIVATE_ORCID"), !anonymous, "native ORCID annotation presence");

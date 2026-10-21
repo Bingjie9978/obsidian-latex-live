@@ -179,7 +179,7 @@ test("PDF images and \\includepdf pages through the host's renderer: one call pe
   const calls: { file: string; pages: number[] }[] = [];
   const pdfImages: PdfImages = async (abs, want) => {
     const pages = want(3);
-    calls.push({ file: abs.split("/").pop()!, pages });
+    calls.push({ file: abs.split(/[\\/]/).pop()!, pages });
     return pages.map((page) => ({ page, png: png(page, 1), width: 100 * page, height: 200 }));
   };
   const body = String.raw`\includegraphics[page=2,width=3cm]{doc.pdf}

@@ -6,7 +6,7 @@ import { isFileInput, planExport, visitNodes, type ExportPlan } from "../export/
 import { colorId, cssRgb, darkText, profileOf } from "../export/profiles";
 import { ReportBuilder } from "../export/report";
 import type { TexNode } from "../export/texTree";
-import { readAuxCheckpoints, readAuxLabels } from "../tex/aux";
+import { readAuxCheckpoints, readAuxLabels } from "../tex/auxData";
 import { bibFiles, readBib, type BibEntry } from "../tex/bib";
 import { projectDefinitions, type Definitions } from "../tex/macros";
 import { stripComments } from "../tex/project";

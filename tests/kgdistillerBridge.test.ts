@@ -102,7 +102,7 @@ test("notes wrapper can read absolute repository inputs within project_root", { 
     const fragment = join(notes, "notes.tex");
     const text = "\\kn{Nested}: text and \\knref{Nested}.\n";
     await writeFile(fragment, text);
-    await writeFile(source, `\\documentclass{article}\n\\begin{document}\n\\input{${fragment}}\n\\end{document}\n`);
+    await writeFile(source, `\\documentclass{article}\n\\begin{document}\n\\input{${fragment.replace(/\\/g, "/")}}\n\\end{document}\n`);
     await writeFile(join(folder, "unrelated-secret.env"), "not a dependency");
     const result = await kgdistillerHtml({ schema, operation: "document", source, project_root: folder, markers: [{ name: "Nested", id: "nested", url: "#kn-nested" }] });
     assert.equal(result.operation, "document");
@@ -246,7 +246,7 @@ test("XeLaTeX wrapper preserves Chinese spaced paths and distinct raw names shar
     const fragment = join(notes, "片段 notes.tex");
     const text = "\\kn{$\\sigma$-代数}：集合族。见 \\knref{\\(\\sigma\\)-代数}。\n";
     await writeFile(fragment, text);
-    await writeFile(source, `\\documentclass[UTF8,fontset=fandol]{ctexart}\n\\begin{document}\n\\input{"${fragment}"}\n\\end{document}\n`);
+    await writeFile(source, `\\documentclass[UTF8,fontset=fandol]{ctexart}\n\\begin{document}\n\\input{"${fragment.replace(/\\/g, "/")}"}\n\\end{document}\n`);
     const result = await kgdistillerHtml({ schema, operation: "document", source, project_root: folder, markers: [
       { name: "$\\sigma$-代数", id: "sigma", url: "../../knowledge/graph/#kn-sigma" },
       { name: "\\(\\sigma\\)-代数", id: "sigma", url: "../../knowledge/graph/#kn-sigma" },

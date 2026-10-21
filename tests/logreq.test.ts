@@ -5,9 +5,10 @@ import { join } from "node:path";
 import { after, test } from "node:test";
 import { buildFreshness } from "../src/export/exporter";
 import { fixtureCopy, nodeExportHost, removeExportTemps, texBin } from "./support/exportHost";
+import { ghostscript } from "./support/ghostscript";
 
 after(removeExportTemps);
-const gs = (() => { try { execFileSync("gs", ["--version"], { stdio: "ignore" }); return true; } catch { return false; } })();
+const gs = ghostscript(texBin);
 const skip = !texBin ? "no TeX installation found" : !gs ? "no Ghostscript for PDF text assertions" : process.platform === "win32" ? "POSIX tool capture fixture" : false;
 
 /** Capture the native latexmk log while preserving its exit status and the real TeX tools. */
@@ -23,7 +24,7 @@ function capture(host: ReturnType<typeof nodeExportHost>, dir: string): string {
   return output;
 }
 
-const textOf = (file: string) => execFileSync("gs", ["-q", "-dNOPAUSE", "-dBATCH", "-sDEVICE=txtwrite", "-sOutputFile=-", file], { encoding: "utf8" });
+const textOf = (file: string) => execFileSync(gs!, ["-q", "-dNOPAUSE", "-dBATCH", "-sDEVICE=txtwrite", "-sOutputFile=-", file], { encoding: "utf8", timeout: 20000, windowsHide: true });
 const runs = (output: string, rule: string) => [...output.matchAll(/Run number \d+ of rule '([^']+)'/g)].filter((m) => m[1].startsWith(rule)).length;
 
 test("native latexmk converges without the logreq-only pass, preserving XML inputs, Biber and user hooks", { skip, timeout: 90_000 }, async () => {

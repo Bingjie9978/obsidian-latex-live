@@ -1,7 +1,7 @@
 import { existsSync, promises as fsp, readFileSync } from "fs";
 import { dirname, join, relative, resolve, sep } from "path";
 import { formulaRefs, refNames, type LatexRefs } from "../editor/latexRefs";
-import { readAuxLabels } from "../tex/aux";
+import { readAuxLabels } from "../tex/auxData";
 import { bibFiles, readBib, type BibEntry } from "../tex/bib";
 import { readBibFiles, readFls, type CompileResult } from "../tex/compiler";
 import { parseLog } from "../tex/logParser";

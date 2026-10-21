@@ -50,6 +50,10 @@ LatexSession(root) -> Compiler: 串行队列，最多一个在跑、一个在等
     和中文的 elegantbook/elegantnote/elegantpaper，即 `lang=cn` 或 `cn`，elegantnote 默认中文；
     elegantbook 的 `chinese` 只是标题样式 `scheme=chinese`，不加载 ctex，pdfLaTeX 能编译）。
   - `compiler.ts`：编译队列、导言区格式缓存、依赖收集、进程组清理；完整构建前找一个能跑的 biber。
+    latexmk 的依赖钩子写到私有输出目录的 `latex-live.latexmkrc`，通过 `-r` 加载，避免 Windows
+    启动器压平多行 `-e` 参数后改变 Perl 注释范围；仍保留发行版和项目自己的 rc / hooks。
+  - `binaries.ts`：明确设置的目录优先，其次按用户 PATH 选择发行版，最后探测常见 GUI 安装位置。
+    Windows 的 TeX Live 年份目录动态扫描，不写死某两个发行版本。
   - `watchdog.ts`：无进展看门狗（见下文“编译流程”）。
   - `logParser.ts`：错误（精确到文件和行）、警告（按日志里的文件栈归属）、
     rerun / 需要 BibTeX 的提示、页数。
@@ -57,7 +61,7 @@ LatexSession(root) -> Compiler: 串行队列，最多一个在跑、一个在等
   - `macros.ts`：项目里的定义：补全用的宏参数个数、颜色、环境，以及喂给 MathJax 的定义语句
     （规范化，按文档顺序：`\input` 的文件、本地宏包的语句排在它们被读入的位置；一个文件里定义的
     `\nc` 这类别名在之后读入的文件里也认），和 MathJax 读不了的定义（`unsupported`）。
-  - `aux.ts`：输出目录下所有 `.aux`（`\include` 的在 `chapters/*.aux`）里的 `\newlabel`：编号、页码、hyperref 锚点。
+  - `auxData.ts`：输出目录下所有 `.aux`（`\include` 的在 `chapters/*.aux`）里的 `\newlabel`：编号、页码、hyperref 锚点。
   - `fragment.ts`：悬停的真实 TeX 片段编译（P6）：用根文档的引擎和导言区（pdfLaTeX 用编译留下的导言区格式）在
     构建目录的 `snippets/` 里编译一个 preview 环境，按内容哈希缓存，每个主文件一个队列。
 - `src/session.ts`：每个主文件一个会话，由预览视图引用计数，最后一个预览关闭或切走时销毁并杀掉进程。
@@ -149,6 +153,9 @@ LatexSession(root) -> Compiler: 串行队列，最多一个在跑、一个在等
     这时去掉查询词再要一次完整列表，接受时替换整个查询词。
   - `\definecolor` 定义的颜色不在列表里；内置层从项目文件里扫出来补上。
 - `build.auxDirectory` 指向当前文档的编译输出目录后，label 带上编号：
+  `auxDirectory` / `pdfDirectory` 通过 `pathToFileURL` 发送为 file URL。Windows 的裸盘符
+  路径会被 texlab 解析成不能作为 base 的 `c:` URL，并在依赖图发现阶段崩溃（issue #2）。
+  `tests/texlabPaths.test.ts` 用真实 texlab 和含空格、中文、`#`、`%` 的输出目录验证服务持续运行。
   `sec:intro -> Section 1 (Introduction)`、`eq:cdf -> Equation (1)`（2026-09-28 用 pdflatex 编译测试项目后验证）。
 - 悬停设为 `hover.symbols = glyph`，数学符号直接显示 α；补全列表里的符号用单独一列显示字形。
 - 诊断不显示：编译日志是唯一来源；格式化不接（本机 latexindent 缺 YAML::Tiny）。
@@ -346,9 +353,9 @@ YOLO 自己的按键映射被过滤掉，只保留渲染，触发走 YOLO 自己
   - [x] LaTeX 的文本构造 #5–#11（2026-09-29，无头部分；见下文“LaTeX 的实时预览：文本构造（P3）”）：
         `latexScan.ts` 的标题、强调、`\item`（标记按层级、enumerate 简写和 enumitem `label=`/`start=`）、列表和
         center 的 `\begin`/`\end` 行、引用、引用文献、`\label`，定义体不再扫描；`latexRefs.ts`（标签和公式里引用的
-        文字，类型名来自锚点，elegantbook lang=cn 用中文名）；`src/tex/aux.ts` 的类型、`src/tex/bib.ts`
+        文字，类型名来自锚点，elegantbook lang=cn 用中文名）；`src/tex/auxData.ts` 的类型、`src/tex/bib.ts`
         （`bibFiles`、`parseBib`、`readBib`、`citeLabel`）；`TexRender.refsOf`（编译结果、打开视图、保存和编辑
-        .bib 时重读，变了才通知视图）。测试 T-L6（`tests/aux.test.ts`，`tests/fixtures/aux/` 的静态 .aux 摘录）、
+        .bib 时重读，变了才通知视图）。测试 T-L6（`tests/auxData.test.ts`，`tests/fixtures/aux-data/` 的静态 .aux 摘录）、
         T-L7（`tests/bib.test.ts`）、T-L8（`tests/latexLive.test.ts`），以及扫描器、TexRender、TexView 的新用例。
   - [x] 文本构造的审查修复（2026-09-29，无头部分；见下文“文本构造（P3）”的“审查修复”）：标签的文字就是 PDF
         印出来的（elegantbook 条目编号的颜色参数不再漏进 “structurecolor1.”；`\autoref` 用 hyperref 的名字，
@@ -707,7 +714,7 @@ cleveref 的选项、`\crefname`/`\Crefname`、`\newtheorem`、`\<type>autorefna
 
 验证（2026-09-29，不入库的脚本在 scratchpad）：
 
-- 测试：T-L6（`tests/aux.test.ts`：elegantbook 的 `chapters/*.aux` 和 tcolorbox 锚点、cleveref 文章的
+- 测试：T-L6（`tests/auxData.test.ts`：elegantbook 的 `chapters/*.aux` 和 tcolorbox 锚点、cleveref 文章的
   `@cref` 类型、AMS 标签、Item、脚注、附录）；T-L7（`tests/bib.test.ts`：et al.、大括号保护、重音、中文名、
   `von`、`date`、@string、引号、`#`、括号形式、重复键、坏条目、`bibFiles`、缓存）；T-L8（`tests/latexLive.test.ts`：
   #5–#11 的显示和展开规则、中英文类型名、编译结果/保存 .bib/打开视图后标签更新、错误诊断、方向键和 Enter）；
@@ -736,7 +743,7 @@ cleveref 的选项、`\crefname`/`\Crefname`、`\newtheorem`、`\<type>autorefna
   修复前 elegantbook 16 个、latex-article 17 个不一致（`structurecolor1.`、`定理 1.1` 对 PDF 的 `1.1`、
   `theorem 2.1` 对 `Theorem 2.1`、`figure 1, 2` 对 `Figures 1 and 2`、`appendix A` 对 `Section A`），现在引用全部一致
   （`\nameref` 的中文标题 Ghostscript 取不出来，标签是对的；文献标签按设计是 “作者 年份”）。
-- `tests/latexRefs.test.ts`：合成探针 `tests/fixtures/aux/cleveref/probe.tex` 在四种导言区（默认、`capitalise,noabbrev`、
+- `tests/latexRefs.test.ts`：合成探针 `tests/fixtures/aux-data/cleveref/probe.tex` 在四种导言区（默认、`capitalise,noabbrev`、
   `capitalize`、`noabbrev` 加 `\crefname`/`\Crefname`/`\<type>autorefname`）下 pdfLaTeX 印出的 45 × 4 个引用文字，
   标签全部相同（分组、排序、区间、复数、`, and`、类型名、没有名字的类型只印编号）。
 - enumitem：`resume`、`resume*`（带和不带 `start=`）、`series=`/`resume=`/`resume*=`/只写系列名、嵌套列表的 `resume`、
@@ -1042,7 +1049,7 @@ P4–P6 的审查里落在共享部分（`src/editor/shared/`，规范副本在 
 审查里落在 LaTeX Live 自己代码里的问题（共享核心的见上一节）：
 
 - **没有标签的框的编号**（P4-R1）：elegantbook 笔记里的框大多不加标签（`{标题}{}`、`例题`、`练习`），以前只显示名字，PDF 却有编号。
-  现在 `\include` 进来的章节里按位置数出来：`src/tex/aux.ts` 的 `readAuxCheckpoints` 读每个章节 .aux 的 `\@setckpt`（章节结束时
+  现在 `\include` 进来的章节里按位置数出来：`src/tex/auxData.ts` 的 `readAuxCheckpoints` 读每个章节 .aux 的 `\@setckpt`（章节结束时
   各计数器的值）和它最后一个编号章的 hyperref 锚点（`chapter.4` 是 4，附录的 `appendix.A` 是 A；不用 chapter 计数器，附录里它是
   1，也不用目录的 `\numberline`，`chinese` 下是 `第四章`），随标签一起读（`LatexRefs.checkpoints`，不变时同一个对象）。
   `theorems.ts` 给每个环境记下它按 `\thechapter.\arabic{c}` 编号、`\chapter` 清零的计数器 `counter`：elegantbook fancy 模式
@@ -1095,7 +1102,7 @@ P4–P6 的审查里落在共享部分（`src/editor/shared/`，规范副本在 
 - 测试：新增 12 个（`tests/crop.test.ts` 4 个：编译进行时照样裁剪和悬停〔真实 XeLaTeX 第二遍在跑〕、SyncTeX 失败〔假的 synctex〕、
   相同文本的块、段落最后一行，跨页的框加在分页残留的用例里；`tests/fragment.test.ts` 2 个：释放和卸载时不启动 TeX、`bodyStamp` 让改过的图重新编译；
   `tests/latexLive.test.ts` 2 个：没有标签的框按检查点编号〔章节、附录 A、多一个框、标签位置不对、`\chapter` 之前的框、两个章〕、
-  不收的参数留作文字；`tests/aux.test.ts` 1 个：检查点；`tests/theorems.test.ts` 1 个：计数器；`tests/latexScan.test.ts` 2 个：
+  不收的参数留作文字；`tests/auxData.test.ts` 1 个：检查点；`tests/theorems.test.ts` 1 个：计数器；`tests/latexScan.test.ts` 2 个：
   problemset、没闭合的 `\text{$` 的时间），另有 T-L9 图片、T-L11、`queryLines`、`fragmentBody`、队列、`readAuxLabels` 的新断言。
   逐个把修复撤掉跑它的测试：16 处都失败（R4 的在 240 s 时限处被杀）。全部 419 个测试通过，`npm run check`、`npm run build`、
   `test:yolo`（18/18）、浏览器冒烟 29/29。

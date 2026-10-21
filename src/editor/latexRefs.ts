@@ -1,4 +1,4 @@
-import type { AuxCheckpoint, AuxLabel } from "../tex/aux";
+import type { AuxCheckpoint, AuxLabel } from "../tex/auxData";
 import { BibEntry, citeLabel } from "../tex/bib";
 import { texText } from "../tex/texText";
 import { TheoremMap, theoremMap } from "../tex/theorems";

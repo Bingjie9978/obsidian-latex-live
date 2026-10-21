@@ -46,10 +46,11 @@ test("structural export: probe visits and native HTML match imported/subfile flo
 test("absolute project-local inputs/imports use the instrumented source and distinguish identical basenames", { skip: !texBin && "no TeX installation found", timeout: 90_000 }, async () => {
   const { dir } = fixtureCopy("export-structure");
   const root = join(dir, "main file.tex");
+  const texDir = dir.replace(/\\/g, "/");
   let text = readFileSync(root, "utf8").replace("\\usepackage{graphicx}", "\\usepackage{graphicx,tikz}");
-  text = text.replace("\\import{parts one/}{chapter one}", `\\import{${join(dir, "parts one")}/}{chapter one}`);
-  text = text.replace("\\input{root only}", `\\input{${dir}/./root only.tex}`);
-  text = text.replace("\\end{document}", `\\import{${dir}/parts one/../absolute A/}{detail}\n\\import{${dir}/./absolute B/}{detail}\n\\end{document}`);
+  text = text.replace("\\import{parts one/}{chapter one}", `\\import{${texDir}/parts one/}{chapter one}`);
+  text = text.replace("\\input{root only}", `\\input{${texDir}/./root only.tex}`);
+  text = text.replace("\\end{document}", `\\import{${texDir}/parts one/../absolute A/}{detail}\n\\import{${texDir}/./absolute B/}{detail}\n\\end{document}`);
   writeFileSync(root, text);
   for (const [name, colour] of [["absolute A", "blue"], ["absolute B", "red"]]) {
     mkdirSync(join(dir, name));
@@ -59,8 +60,8 @@ test("absolute project-local inputs/imports use the instrumented source and dist
   const signal = new AbortController().signal;
   const { prepared, math } = await prepareExport(root, host, () => undefined, signal);
   assert.ok(prepared.log);
-  assert.equal(prepared.plan.sourceAliases.get(`${dir}/parts one/../absolute A/detail.tex`), "absolute A/detail.tex");
-  assert.equal(prepared.plan.sourceAliases.get(`${dir}/./absolute B/detail.tex`), "absolute B/detail.tex");
+  assert.equal(prepared.plan.sourceAliases.get(`${texDir}/parts one/../absolute A/detail.tex`), "absolute A/detail.tex");
+  assert.equal(prepared.plan.sourceAliases.get(`${texDir}/./absolute B/detail.tex`), "absolute B/detail.tex");
   const queue = new StepQueue(prepared.log, prepared.plan.visits);
   for (let i = 0; i < prepared.plan.visits.length; i++) assert.ok(queue.knows(i), `${prepared.plan.visits[i].key}: absolute probe visit matched; actual keys ${JSON.stringify(prepared.log.visits.map((v) => v.key))}`);
   assert.equal(prepared.plan.fragments.length, 2);
