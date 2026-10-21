@@ -669,6 +669,10 @@ SOFTWARE.
 .ll-ref {
   color: var(--color-cyan, #17a89a);
 }
+/* \caption{..} shown as "Figure n: " (latexLive.ts) */
+.ll-caption-head {
+  font-weight: 600;
+}
 .ll-math,
 .ll-math-delim {
   color: var(--color-yellow, #b8860b);
@@ -700,6 +704,8 @@ SOFTWARE.
 .ll-template-json textarea { width: 100%; box-sizing: border-box; font-family: var(--font-monospace); margin: 8px 0; }
 .ll-template-json button { margin: 4px 8px 4px 0; }
 .ll-template-error { color: var(--text-error); white-space: pre-wrap; }
+.ll-env-rules-defaults { color: var(--text-muted); font-size: var(--font-ui-small); }
+.ll-env-rules-json { width: 100%; box-sizing: border-box; font-family: var(--font-monospace); margin: 8px 0; }
 @media (max-width: 480px) { .ll-template-field { grid-template-columns: 1fr; gap: 4px; } }
 
 .ll-preview {

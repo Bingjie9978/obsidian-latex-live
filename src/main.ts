@@ -22,6 +22,8 @@ import type { ClickText } from "./editor/reveal";
 import { TexRender } from "./editor/texRender";
 import { parseTemplateProfiles, type TemplateVisualizationProfile } from "./editor/templateVisualization";
 import { TemplateVisualizationModal } from "./editor/templateVisualizationModal";
+import { EnvRulesModal, type EnvRulesKind } from "./editor/envRulesModal";
+import { EMPTY_USER_RULES, parseUserRules, type UserEnvRules } from "./tex/envRules";
 import { TheoremGraphs } from "./editor/theoremGraphs";
 import { Bibliographies } from "./editor/bibliographies";
 import { registerBibliography } from "./editor/bibliographyView";
@@ -80,6 +82,11 @@ export default class LatexLivePlugin extends Plugin {
 
   async onload(): Promise<void> {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    try { this.settings.envRules = parseUserRules(this.settings.envRules); }
+    catch (error) {
+      new Notice(`LaTeX Live: live editor rules ignored: ${error instanceof Error ? error.message : String(error)}`);
+      this.settings.envRules = EMPTY_USER_RULES;
+    }
     this.visualizationKey = this.visualizationSettingsKey();
     this.yolo = new YoloBridge(this.app, {
       name: "latex-live",
@@ -136,6 +143,8 @@ export default class LatexLivePlugin extends Plugin {
       fragments: this.fragments,
       fragmentFallback: () => this.settings.texFragmentFallback,
       visualization: root => this.visualizationProfile(root),
+      envRules: () => this.settings.envRules,
+      rulesChanged: () => this.refreshEnvRules(),
     });
     this.theoremGraphs = new TheoremGraphs({
       buffers: () => this.editorBuffers(true),
@@ -294,6 +303,7 @@ export default class LatexLivePlugin extends Plugin {
     if (visualizationKey !== this.visualizationKey) {
       this.visualizationKey = visualizationKey;
       this.texRender.refreshVisualizations();
+      this.refreshEnvRules();
     }
     const key = this.texlabSettingsKey();
     if (key !== this.texlabKey) {
@@ -318,6 +328,25 @@ export default class LatexLivePlugin extends Plugin {
     const id = key ? this.settings.templateAssignments?.[key] : null;
     return id && Array.isArray(this.settings.templateVisualizations)
       ? this.settings.templateVisualizations.find(p => p?.id === id) ?? null : null;
+  }
+
+  /** The open editors rebuild with their roots' current live editor rules (TexView.refreshRules). */
+  refreshEnvRules(): void {
+    for (const view of this.texViews()) view.refreshRules();
+  }
+
+  /** Edit one list of settings.envRules (EnvRulesModal); `saved` runs after a save. */
+  openEnvRules(kind: EnvRulesKind, saved?: () => void): void {
+    new EnvRulesModal({
+      app: this.app, kind, value: this.settings.envRules[kind],
+      save: async (value) => {
+        const next: UserEnvRules = parseUserRules({ ...this.settings.envRules, [kind]: value });
+        await this.saveData({ ...this.settings, envRules: next });
+        this.settings.envRules = next;
+        this.refreshEnvRules();
+        saved?.();
+      },
+    }).open();
   }
 
   openTemplateVisualizations(): void {
@@ -347,7 +376,7 @@ export default class LatexLivePlugin extends Plugin {
           this.settings.templateVisualizations = valid;
           this.settings.templateAssignments = assignments;
           this.visualizationKey = this.visualizationSettingsKey();
-          if (!this.unloading) this.texRender.refreshVisualizations();
+          if (!this.unloading) { this.texRender.refreshVisualizations(); this.refreshEnvRules(); }
         } finally { this.templateSaving = false; }
       },
       closed: () => this.templateModals.delete(modal),

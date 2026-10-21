@@ -23,6 +23,11 @@
 //       hangs below the formula's last row, never over the row being typed, its left edge at the
 //       formula's start; near the window's bottom, a display's preview (source mode) flips above
 //       its first row, over none of its lines
+//   B9  LaTeX Live's own language (latexLive.ts) with the live editor rules (src/tex/envRules.ts):
+//       a subequations shell, a \centering line and a user-hidden \DeckLayout{..} collapse, a
+//       caption reads "Figure n: ", every gutter number sits on its line (±1 px); a Mod-click on
+//       an \eqref chip (labelJump.ts) moves the cursor to the \label 60 lines down and scrolls it
+//       into view, a plain click reveals the chip's source
 // The page bundles the real shared modules (keyArbiter first, live preview in its
 // compartment) with a LaTeX-like test language. Formulas render with MathJax 3.2.2 when the
 // `mathjax` dev dependency is installed (LaTeX Live, Obsidian's configuration; its glyph CSS
@@ -68,6 +73,24 @@ import { Decoration, EditorView, drawSelection, keymap, lineNumbers } from "@cod
 import { keyArbiter } from "./src/editor/shared/keyArbiter";
 import { TextWidget, liveInput, livePreview, livePreviewCompartment, renderConstruct, renderStats } from "./src/editor/shared/livePreview";
 import { cursorPreview } from "./src/editor/shared/renderHover";
+import { latexLiveLanguage } from "./src/editor/latexLive";
+import { DEFAULT_REF_NAMES } from "./src/editor/latexRefs";
+import { labelJump } from "./src/editor/labelJump";
+import { EMPTY_USER_RULES, NO_DETECTED, mergeEnvRules } from "./src/tex/envRules";
+
+/** B9: the rules of a deck whose preamble defines \DeckLayout[1] (the user hides it), and its refs. */
+const rules = mergeEnvRules({ ...EMPTY_USER_RULES, hidden: ["DeckLayout"] }, NO_DETECTED, (n) => (n === "DeckLayout" ? { args: 1, optional: false } : undefined));
+const aux = (number, anchor, kind) => ({ number, page: "1", title: "", anchor, kind, order: null });
+const refs = {
+  numbers: new Map([["eq:x", "1a"], ["eq:far", "2"], ["fig:a", "1"]]),
+  labels: new Map([["eq:x", aux("1a", "equation.1a", "equation")], ["eq:far", aux("2", "equation.2", "equation")], ["fig:a", aux("1", "figure.1", "figure")]]),
+  cites: new Map(),
+  names: DEFAULT_REF_NAMES,
+  theorems: new Map(),
+  checkpoints: new Map(),
+};
+const latex = latexLiveLanguage({ refs: () => refs, rules });
+window.__jumpedElsewhere = [];
 
 const MATH = /\\begin\{(align\*?|equation\*?|gather\*?)\}[\s\S]*?\\end\{\1\}|\$\$([\s\S]*?)\$\$|\\\[([\s\S]*?)\\\]|\\\(([\s\S]*?)\\\)|\$([^$\n]+)\$/g;
 
@@ -163,7 +186,8 @@ window.__smoke = {
           lineNumbers(),
           EditorView.lineWrapping,
           liveInput(),
-          livePreviewCompartment.of(o.live === false ? [] : livePreview({ language, renderer })),
+          livePreviewCompartment.of(o.live === false ? [] : livePreview({ language: o.latex ? latex : language, renderer })),
+          o.latex ? labelJump((key) => window.__jumpedElsewhere.push(key)) : [],
           o.preview ? preview : [],
           keymap.of([...defaultKeymap, ...historyKeymap]),
         ],
@@ -202,6 +226,8 @@ async function writePage() {
     format: "iife",
     platform: "browser",
     target: "es2022",
+    // latexRefs reaches bib.ts and auxData.ts, whose file readers the page never calls.
+    plugins: [{ name: "no-node", setup: (b) => { b.onResolve({ filter: /^(fs|path)$/ }, () => ({ path: "node-builtin", namespace: "no-node" })); b.onLoad({ filter: /.*/, namespace: "no-node" }, () => ({ contents: "module.exports = {};", loader: "js" })); } }],
     write: false,
     logLevel: "warning",
   });
@@ -724,6 +750,62 @@ async function b7({ page, evaluate }) {
   check("B7", "ArrowDown from line 36 stops on the block (line 37), not past the line after it", landed === 37, { ...before, landed });
 }
 
+const B9_DOC = [
+  "\\begin{subequations}\\label{eq:sys}", // 1
+  "\\begin{equation}",
+  "  x = 1 \\label{eq:x}",
+  "\\end{equation}",
+  "\\end{subequations}", // 5
+  "\\begin{figure}",
+  "  \\centering",
+  "  \\caption{A plot}\\label{fig:a}",
+  "\\end{figure}",
+  "\\DeckLayout{two} Deck text.", // 10
+  "See \\eqref{eq:far} below.", // 11
+  ...Array.from({ length: 60 }, (_, i) => `Filler line ${i + 1}.`),
+  "\\begin{equation}", // 72
+  "  y = 2 \\label{eq:far}",
+  "\\end{equation}",
+  "End.",
+].join("\n");
+
+async function b9({ page, evaluate }) {
+  await mount(evaluate, B9_DOC, 500, { latex: true });
+  const shown = await evaluate(`(() => {
+    const v = __view;
+    const gutter = new Map();
+    for (const el of v.dom.querySelectorAll(".cm-lineNumbers .cm-gutterElement")) {
+      if (/^\\d+$/.test(el.textContent)) gutter.set(+el.textContent, el.getBoundingClientRect().top);
+    }
+    const rows = [], text = [];
+    for (const el of v.contentDOM.children) {
+      if (!el.classList.contains("cm-line") && !el.classList.contains("lsp-lp-render")) continue;
+      const n = v.state.doc.lineAt(v.lineBlockAt(v.posAtDOM(el)).from).number;
+      if (n <= 11) text.push(n + ":" + el.textContent);
+      if (gutter.has(n)) rows.push([n, Math.round(el.getBoundingClientRect().top - gutter.get(n))]);
+    }
+    return { text, worst: Math.max(...rows.map((r) => Math.abs(r[1]))), off: rows.filter((r) => Math.abs(r[1]) > 1) };
+  })()`);
+  const lines = shown.text.map((t) => t.replace(/^\d+:/, ""));
+  check("B9", "the shell, \\centering and \\DeckLayout{..} hide; the caption reads Figure 1:", !lines.some((t) => /subequations|centering|DeckLayout|\\caption/.test(t)) && lines.some((t) => t.includes("Figure 1: A plot")) && lines.some((t) => t.trim() === "Deck text."), shown.text);
+  check("B9", "gutter numbers sit on their lines (±1 px)", shown.worst <= 1, shown);
+  const click = async (modifiers) => {
+    const chip = await evaluate(`(() => { const r = __view.contentDOM.querySelector('[data-ll-ref-key="eq:far"]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+    for (const type of ["mousePressed", "mouseReleased"]) await page("Input.dispatchMouseEvent", { type, x: chip.x, y: chip.y, button: "left", clickCount: 1, modifiers });
+    await sleep(300);
+    return evaluate(`(() => { const v = __view, h = v.state.selection.main.head, box = v.scrollDOM.getBoundingClientRect(), at = v.coordsAtPos(h);
+      return { line: v.state.doc.lineAt(h).number, visible: !!at && at.top >= box.top && at.bottom <= box.bottom, elsewhere: __jumpedElsewhere.length }; })()`);
+  };
+  const mod = (await evaluate("/Mac|iPhone|iPad/.test(navigator.platform)")) ? 4 : 2; // Meta on macOS, else Ctrl
+  const jumped = await click(mod);
+  check("B9", "Mod-click on the \\eqref chip moves to its \\label (line 73) and scrolls it into view", jumped.line === 73 && jumped.visible && jumped.elsewhere === 0, jumped);
+  // Back to the top with the cursor on the last line, so no construct near the chip is revealed.
+  await evaluate("__view.dispatch({ selection: { anchor: __view.state.doc.length } }), __view.scrollDOM.scrollTop = 0, true");
+  await sleep(300);
+  const plain = await click(0);
+  check("B9", "a plain click on the chip places the cursor at the chip (line 11)", plain.line === 11, plain);
+}
+
 async function b8({ page, evaluate }) {
   const terms = Array.from({ length: 24 }, (_, i) => `a_{${i + 1}}`).join(" + ");
   const doc = ["A formula that wraps: $" + terms + "$ and text after it.", "The next line."].join("\n");
@@ -813,6 +895,7 @@ try {
   if (run("B6")) await b6(cdp);
   if (run("B7")) await b7(cdp);
   if (run("B8")) await b8(cdp);
+  if (run("B9")) await b9(cdp);
 } catch (e) {
   check("--", "smoke run", false, e instanceof Error ? e.message : String(e));
 } finally {
