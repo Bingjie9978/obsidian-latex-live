@@ -1316,7 +1316,8 @@ test("#23 a tabular without a crop is a table: rules, spans, formulas, styles an
     const view = await p.mount(doc);
     await waitFor(() => !!view.contentDOM.querySelector(".lsp-lp-table"));
     await rendered(view);
-    assert.deepEqual(lines(view), ["\\begin{center}\\renewcommand{\\arraystretch}{1.35}", "[w]", "\\begin{tabular}{ll}", "a & \\begin{tabular}{l}x\\end{tabular}", "\\end{tabular}", "end"]);
+    // The center's \\begin line collapses with its \\arraystretch (ARISE deck 06_rates.tex:197).
+    assert.deepEqual(lines(view), ["<>", "[w]", "\\begin{tabular}{ll}", "a & \\begin{tabular}{l}x\\end{tabular}", "\\end{tabular}", "end"]);
     const table = view.contentDOM.querySelector(".lsp-lp-table table.ll-table")!;
     assert.ok(table.classList.contains("is-center"), "in a center environment");
     assert.deepEqual(tableCells(view), [
@@ -1342,6 +1343,33 @@ test("#23 a tabular without a crop is a table: rules, spans, formulas, styles an
     cursorAt(view, view.state.doc.length);
     await rendered(view);
     assert.ok(view.contentDOM.querySelector(".lsp-lp-table"));
+  } finally {
+    p.done();
+  }
+});
+
+test("#23 a wrapper's \\begin line collapses with the layout commands after it, on its line or the next, around a table", async () => {
+  const p = await project();
+  try {
+    const doc = [
+      "\\begin{table}[h]\\centering\\renewcommand{\\arraystretch}{1.2}", // 1
+      "\\begin{tabular}{ll}",
+      "a & b \\\\",
+      "\\end{tabular}",
+      "\\end{table}", // 5
+      "\\begin{center}",
+      "\\setlength{\\tabcolsep}{4pt}\\renewcommand{\\arraystretch}{1.2}",
+      "\\begin{tabular}{ll}",
+      "c & d \\\\",
+      "\\end{tabular}", // 10
+      "\\end{center}",
+      "end",
+    ].join("\n");
+    const view = await p.mount(doc);
+    await waitFor(() => view.contentDOM.querySelectorAll(".lsp-lp-table").length === 2);
+    await rendered(view);
+    // 1: \\centering and the setting go with \\begin{table}; 7: two settings alone on a line collapse together.
+    assert.deepEqual(lines(view), ["<>", "[w]", "<>", "<>", "<>", "[w]", "<>", "end"]);
   } finally {
     p.done();
   }

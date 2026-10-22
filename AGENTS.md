@@ -292,7 +292,11 @@
     place (bold for a term) and its constructs render; touching `\item[` or `]` reveals both. The
     `\begin`/`\end` lines of lists, `center`, `figure(*)` and `table(*)` alone on their lines
     collapse (a block replace without a widget) until the cursor is on the line; arrows reach them
-    through `enterBlocks` like any block.
+    through `enterBlocks` like any block. A wrapper's `\begin` line collapses with the hidden
+    commands and layout settings after it (`\begin{center}\renewcommand{\arraystretch}{1.35}`), for
+    any wrapper (`table`, a user's); a layout setting (envRules' `layoutSettingEnd`: `\renewcommand`/
+    `\def` of `\arraystretch`/`\baselinestretch` to a value without commands, `\setlength`,
+    `\addtolength`) is a hidden command anywhere. Beamer layout detection reads the same settings.
   - theorem boxes: latexScan emits every other environment whose `\begin` (with its balanced,
     possibly wrapped title arguments and a following `\label`) and `\end` own their lines,
     within 200 lines, as an `env`

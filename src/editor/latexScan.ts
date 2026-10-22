@@ -1,6 +1,6 @@
 import type { Text } from "@codemirror/state";
 import { texText } from "../tex/texText";
-import { Arity, DEFAULT_RULES, EnvRules, commandEnd } from "../tex/envRules";
+import { Arity, DEFAULT_RULES, EnvRules, commandEnd, layoutSettingEnd } from "../tex/envRules";
 import { CITE_COMMANDS, VERBATIM_ENVS, iffalseEnd, iffalseStarts } from "./latexHighlight";
 import { TABLE_ENVS } from "./latexTable";
 
@@ -24,7 +24,10 @@ import { TABLE_ENVS } from "./latexTable";
 //             references, citations and labels. An \item[label]
 //             with math or a reference in it keeps its label in place, scanned on. Figure and
 //             table \begin/\end lines alone on their lines collapse like lists (#8), an
-//             \includegraphics alone on its line is an image (#13).
+//             \includegraphics alone on its line is an image (#13). A wrapper's \begin line takes
+//             the hidden commands and layout settings (envRules' layoutSettingEnd) after it
+//             (`\begin{center}\small`); a layout setting (`\renewcommand{\arraystretch}{1.35}`) is
+//             a hidden command.
 //             A heading's title and a style's content are scanned on: constructs nest, in
 //             document order. A definition (\newcommand, \def, \newenvironment, ...) is code:
 //             nothing in it is a construct (macro files have no \begin{document}).
@@ -667,6 +670,26 @@ function argEnd(s: string, i: number, maxLines = 0): number {
   return -1;
 }
 
+/**
+ * Hidden commands and layout settings from s[j] on the same line (`\centering\small`), or null
+ * when there are none; `centering`: one of them is `\centering`.
+ */
+function layoutTail(s: string, j: number, rules: EnvRules): { end: number; centering: boolean } | null {
+  const cmd = /[ \t]*\\([A-Za-z@]+\*?)/y;
+  let end = j;
+  let centering = false;
+  for (let m; (cmd.lastIndex = end), (m = cmd.exec(s)); ) {
+    const name = m[1];
+    const base = name.endsWith("*") ? name.slice(0, -1) : name;
+    let e = layoutSettingEnd(s, cmd.lastIndex, name, argEnd);
+    if (e < 0 && rules.hidden.has(base)) e = commandEnd(s, cmd.lastIndex, rules.hidden.get(base) ?? null, false, (t, k) => argEnd(t, k));
+    if (e < 0) break;
+    centering ||= base === "centering";
+    end = e;
+  }
+  return end > j ? { end, centering } : null;
+}
+
 type Counter = "arabic" | "alph" | "Alph" | "roman" | "Roman";
 
 /** How a list's items are marked: a bullet, or a counter with the text around it. */
@@ -1012,6 +1035,20 @@ function scanText(s: string, rules: EnvRules): LatexConstruct[] {
       continue;
     }
     const base = name.endsWith("*") ? name.slice(0, -1) : name;
+    // Hidden commands and layout settings alone on their line collapse together (`\centering\small`).
+    const run = layoutTail(s, i, rules);
+    if (run && aloneOnLines(s, i, run.end)) {
+      out.push({ kind: "command", from: i, to: run.end, name: base, block: true });
+      if (run.centering) pushCenter(out, centerFrom(s, run.end));
+      i = run.end;
+      continue;
+    }
+    const setting = layoutSettingEnd(s, j, name, argEnd);
+    if (setting > 0) {
+      out.push({ kind: "command", from: i, to: setting, name: base, block: aloneOnLines(s, i, setting) });
+      i = setting;
+      continue;
+    }
     if (DEFINERS.has(base)) {
       i = definitionEnd(s, j);
       continue;
@@ -1264,6 +1301,12 @@ function scanText(s: string, rules: EnvRules): LatexConstruct[] {
           j = beginArgs(s, j).beginTo;
           const label = /^[ \t]*\\label\s*\{[^{}\n]*\}/.exec(s.slice(j, j + 200));
           if (label && aloneOnLines(s, i, j + label[0].length)) j += label[0].length;
+        }
+        // Layout commands after it on its line collapse with it (`\begin{center}\renewcommand{\arraystretch}{1.35}`).
+        const tail = rules.wrappers.has(env) ? layoutTail(s, j, rules) : null;
+        if (tail && aloneOnLines(s, i, tail.end)) {
+          j = tail.end;
+          if (tail.centering) pushCenter(out, centerFrom(s, j));
         }
         if (rules.wrappers.has(env) && aloneOnLines(s, i, j)) out.push({ kind: "envline", from: i, to: j, env, begin: true });
         if (env === "center") pushCenter(out, centerFrom(s, j));
