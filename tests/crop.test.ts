@@ -164,7 +164,7 @@ test("cropRegion: what a page shipped out while the block was read is dropped, a
 test("locate: identical blocks each crop from their own occurrence, whichever is asked first", () => {
   const block = "\\begin{equation}\n  E = mc^2\n\\end{equation}";
   const source = ["text", block, "more", "text", "", "again", "", "x", block, "end"].join("\n");
-  const compiled: CompiledPdf = { seq: 7, pdfPath: "/p/main.pdf", pdf: new Uint8Array(), source: (f) => (f === "/p/ch.tex" ? source : undefined), synctex: 1 };
+  const compiled: CompiledPdf = { seq: 7, pdfPath: "/p/main.pdf", pdf: new Uint8Array(), source: (f) => (f === "/p/ch.tex" ? source : undefined), synctex: 1, positions: null };
   const crops = new CropService({
     session: () => ({ compiling: null, compiled, onEvent: () => () => {} }),
     binDir: () => null,
@@ -185,7 +185,7 @@ test("a new compile keeps each identical block's own previous drawing after line
   const root = "/p/main.tex", file = "/p/ch.tex";
   const block = "\\begin{align}\n a&=b\\\\\n\\intertext{same}\n c&=d\n\\end{align}";
   const source = ["before", block, "middle", "padding", "padding", "padding", block, "after"].join("\n");
-  let compiled: CompiledPdf = { seq: 1, pdfPath: "/p/main.pdf", pdf: new Uint8Array(), source: () => source, synctex: 1 };
+  let compiled: CompiledPdf = { seq: 1, pdfPath: "/p/main.pdf", pdf: new Uint8Array(), source: () => source, synctex: 1, positions: null };
   const crops = new CropService({
     session: () => ({ compiling: null, compiled, onEvent: () => () => {} }),
     binDir: () => null,
@@ -347,7 +347,7 @@ test("T-L10: SyncTeX's records give each block of the compiled fixture its own r
 
 /** A session for the crop service over a compile of the fixture, `sources` as its snapshot. */
 function fakeSession(result: CompileResult, sources: Map<string, string>, seq = 1): CropSession & { compiling: unknown; compiled: CompiledPdf | null } {
-  const compiled: CompiledPdf = { seq, pdfPath: result.pdfPath, pdf: result.pdfData!, source: (f) => sources.get(f), synctex: synctexStamp(result.pdfPath) };
+  const compiled: CompiledPdf = { seq, pdfPath: result.pdfPath, pdf: result.pdfData!, source: (f) => sources.get(f), synctex: synctexStamp(result.pdfPath), positions: null };
   return { compiling: null, compiled, onEvent: () => () => {} };
 }
 
@@ -479,7 +479,7 @@ test("a SyncTeX query that fails fails its crop, asked again next time (never a 
     chmodSync(join(bin, "synctex"), 0o755);
     writeFileSync(flag, "");
     const pdfPath = join(dir, "main.pdf");
-    const compiled: CompiledPdf = { seq: 1, pdfPath, pdf: new Uint8Array(readFileSync(pdfPath)), source: (f) => (f === root ? text : undefined), synctex: synctexStamp(pdfPath) };
+    const compiled: CompiledPdf = { seq: 1, pdfPath, pdf: new Uint8Array(readFileSync(pdfPath)), source: (f) => (f === root ? text : undefined), synctex: synctexStamp(pdfPath), positions: null };
     const crops = new CropService({
       session: () => ({ compiling: null, compiled, onEvent: () => () => {} }),
       binDir: () => bin,
