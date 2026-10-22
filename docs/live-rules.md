@@ -54,7 +54,7 @@ HTML 导出（`src/export/`）仍按 TeX 本身处理，不读这些规则。
 - 公式环境：`equation`、`align`、`gather`、`multline`、`flalign`、`alignat`、`eqnarray` 及其带 `*` 的形式，
   `displaymath`、`math`、`xalignat`、`xalignat*`、`xxalignat`。
 - 外壳环境：`itemize`、`enumerate`、`description`、`problemset`、`center`、`figure`、`figure*`、`table`、
-  `table*`、`subequations`、`minipage`、`flushleft`、`flushright`；beamer 里另有 `columns`、`column`。
+  `table*`、`subequations`、`minipage`、`flushleft`、`flushright`、`adjustbox`；beamer 里另有 `columns`、`column`。
 - 隐藏命令：`centering`、`raggedright`、`raggedleft`、`vfill`、`hfill`、`medskip`、`smallskip`、`bigskip`、
   `noindent`、`par`、`newpage`、`clearpage`（0 个参数），`vspace`、`hspace`（1 个参数）；beamer 里另有
   `\tiny` … `\Huge` 和 `\pause`（0 个参数）。

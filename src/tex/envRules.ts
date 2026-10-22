@@ -69,7 +69,7 @@ export const DEFAULT_MATH_ENVS: readonly string[] = [...BASE_MATH, ...EXTRA_MATH
 export const DEFAULT_WRAPPERS: readonly string[] = [
   "itemize", "enumerate", "description", "problemset", "center",
   "figure", "figure*", "table", "table*",
-  "subequations", "minipage", "flushleft", "flushright",
+  "subequations", "minipage", "flushleft", "flushright", "adjustbox",
   "columns", "column",
 ];
 

@@ -100,12 +100,15 @@ import { LiveContext, LiveLanguage, RenderWidget, TextWidget, renderConstruct } 
 //       places a frame as a whole page, and answers only where the records do not).
 //   #23 a table (BLOCK_ENVS: tabular, tabular*, tabularx, longtable), in papers and in beamer,
 //       whose \begin and \end are alone on their lines (the \begin line may go on with \toprule
-//       or \hline, the \end line with a wrapper's \end): a table widget over its lines (latexTable: columns, rows, rules,
-//       \multicolumn spans), its cells' formulas, styles and chips as in the running text and
+//       or \hline, the \end line with a wrapper's \end or a shell's `}`): a table widget over its
+//       lines (latexTable: columns, rows, rules, \multicolumn and \multirow spans, a longtable's
+//       head once), its cells' formulas, styles and chips as in the running text and
 //       their other text as it prints (an unknown command as written); a cell with a formula
 //       MathJax rejects shows its source. Inside a center environment it is centered. The source
 //       while the cursor is on its lines, with nothing below; one the parse cannot follow
-//       (unbalanced braces, a tabular inside) stays source.
+//       (unbalanced braces, a tabular inside, rows that do not fit the columns) stays source. A
+//       \resizebox, \scalebox or \rotatebox around it is a shell (latexScan's tableShell): its
+//       lines collapse like a wrapper's, and the table shows at its normal size.
 // A construct with an error diagnostic on it stays source (the lint underline shows).
 // Numbers: a request carries the formula already prepared for MathJax (prepareMath: `\label`
 // -> `\tag{n}` from the root's last compile, a reference -> the chip's text), so a compile

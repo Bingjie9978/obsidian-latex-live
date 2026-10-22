@@ -370,7 +370,11 @@
     first head or head once, body, last foot or foot; `\kill` rows dropped, a `\caption` row spans);
     `\multirow` gets a rowSpan (negative: upward) and takes the empty cells it covers (`grid`). It
     gives up (null: source) on unbalanced braces or `$`, a tabular inside, an open inner
-    environment, or rows that do not fit the columns (no fallback column). `cellParts` turns a cell's constructs into parts (math,
+    environment, or rows that do not fit the columns (no fallback column). A `\resizebox`,
+    `\scalebox` or `\rotatebox` whose `{` ends its line and holds just a table is a shell
+    (latexScan's `tableShell`): its line and its `}` line collapse as hidden commands (the `}` may
+    instead follow the table's `\end`); adjustbox is a default wrapper. The table shows at its
+    normal size. `cellParts` turns a cell's constructs into parts (math,
     styles, chips; hidden commands omitted; anything else its source) and the gaps into text
     (`cellText`: unknown commands as written). latexLive sends the spec as JSON in a `table` block
     request (`below: false`), TexRender's `renderLive` builds it with `tableNode` through the

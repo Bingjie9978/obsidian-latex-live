@@ -26,7 +26,9 @@ import { CITE_COMMANDS, VERBATIM_ENVS, iffalseEnd, iffalseStarts } from "./latex
 //             \includegraphics alone on its line is an image (#13). A wrapper's \begin line takes
 //             the hidden commands and layout settings (envRules' layoutSettingEnd) after it
 //             (`\begin{center}\small`); a layout setting (`\renewcommand{\arraystretch}{1.35}`) is
-//             a hidden command.
+//             a hidden command. A \resizebox, \scalebox or \rotatebox whose `{` ends its line
+//             and holds just a table is a shell (#23): its line and its `}` line are hidden
+//             commands; adjustbox is a wrapper.
 //             A heading's title and a style's content are scanned on: constructs nest, in
 //             document order. A definition (\newcommand, \def, \newenvironment, ...) is code:
 //             nothing in it is a construct (macro files have no \begin{document}).
@@ -486,12 +488,49 @@ const aloneOnLines = (s: string, from: number, to: number): boolean =>
 
 /**
  * A table's \begin (#23) may share its line with the first rules (`\begin{tabular}{cll}\toprule`),
- * its \end with the \end of the wrappers around it (`\end{tabular}\end{center}`).
+ * its \end with the \end of the wrappers around it (`\end{tabular}\end{center}`) and a shell's `}`.
  */
 const TABLE_BEGIN_TAIL = /^(?:\s*\\(?:hline|toprule|midrule)(?![A-Za-z])(?:\[[^\]\n]*\])?)*\s*(%.*)?$/;
-const TABLE_END_TAIL = /^(?:\s*\\end\s*\{[^{}\n]*\})*\s*(%.*)?$/;
+const TABLE_END_TAIL = /^(?:\s*(?:\\end\s*\{[^{}\n]*\}|\}))*\s*(%.*)?$/;
 const tableAlone = (s: string, from: number, to: number, tail: RegExp): boolean =>
   !s.slice(s.lastIndexOf("\n", from - 1) + 1, from).trim() && tail.test(s.slice(to, lineEnd(s, to)));
+
+/** Box commands around a table (#23): their mandatory arguments before the box's own `{`. */
+const TABLE_SHELLS = new Map([["resizebox", 2], ["scalebox", 1], ["rotatebox", 1]]);
+
+/**
+ * A box command at s[i] (its name ending at j) whose `{` ends its line and holds just a table
+ * (`\resizebox{\textwidth}{!}{%`, then the tabular, then `}`): its line, and its `}` when that is
+ * alone on its line (else it follows the table's \end on its line). The table shows at its
+ * normal size; the shell's lines collapse like a wrapper's.
+ */
+function tableShell(s: string, i: number, j: number, mandatory: number): { openTo: number; close: number | null; tableEnd: number } | null {
+  if (s.slice(s.lastIndexOf("\n", i - 1) + 1, i).trim()) return null;
+  const opt = () => {
+    const k = skipBlanks(s, j);
+    if (s[k] === "[") j = argEnd(s, k);
+  };
+  if (s[j] === "*") j++;
+  for (let a = 0; a < mandatory && j > 0; a++) {
+    opt();
+    const k = skipBlanks(s, j);
+    j = s[k] === "{" ? argEnd(s, k) : -1;
+  }
+  if (j < 0) return null;
+  opt();
+  const open = skipBlanks(s, j);
+  if (s[open] !== "{" || !/^\s*(%.*)?$/.test(s.slice(open + 1, lineEnd(s, open)))) return null;
+  const head = /^(?:\s|%[^\n]*)*\\begin\s*\{([^{}\n]*)\}/.exec(s.slice(open + 1, open + 400));
+  const env = head?.[1].trim();
+  if (!env || blockEnvKind(env) !== "table") return null;
+  const endTag = `\\end{${env}}`;
+  const tableEnd = s.indexOf(endTag, open);
+  if (tableEnd < 0 || lineBreaks(s, open, tableEnd) > MAX_LINES) return null;
+  const after = /^(?:[ \t]*(?:%[^\n]*)?\n)*?[ \t]*\}/.exec(s.slice(tableEnd + endTag.length));
+  if (!after) return null;
+  const close = tableEnd + endTag.length + after[0].length - 1;
+  return { openTo: open + 1, close: close > lineEnd(s, tableEnd) && aloneOnLines(s, close, close + 1) ? close : null, tableEnd };
+}
 
 const labelsIn = (src: string): string[] => [...src.matchAll(/\\label\s*\{([^{}]*)\}/g)].map((m) => m[1].trim());
 
@@ -961,6 +1000,8 @@ function scanText(s: string, rules: EnvRules): LatexConstruct[] {
   /** The figures and tables open here, with their captions. */
   const floats: { env: string; captions: OpenCaption[] }[] = [];
   const envs: OpenEnv[] = [];
+  /** A table shell's `}` line (#23), by its table's \end. */
+  const shellCloses = new Map<number, LatexCommand>();
   const ends: TextEnds = new Map();
   const math = (from: number, to: number, display: boolean, env: string | null, src: string) => {
     if (!src.trim()) return;
@@ -1030,6 +1071,13 @@ function scanText(s: string, rules: EnvRules): LatexConstruct[] {
       continue;
     }
     const base = name.endsWith("*") ? name.slice(0, -1) : name;
+    const shell = TABLE_SHELLS.has(base) ? tableShell(s, i, j, TABLE_SHELLS.get(base)!) : null;
+    if (shell) {
+      out.push({ kind: "command", from: i, to: shell.openTo, name: base, block: true });
+      if (shell.close !== null) shellCloses.set(shell.tableEnd, { kind: "command", from: shell.close, to: shell.close + 1, name: base, block: true });
+      i = shell.openTo;
+      continue;
+    }
     // Hidden commands and layout settings alone on their line collapse together (`\centering\small`).
     const run = layoutTail(s, i, rules);
     if (run && aloneOnLines(s, i, run.end)) {
@@ -1237,6 +1285,8 @@ function scanText(s: string, rules: EnvRules): LatexConstruct[] {
               const { from, beginTo, args, label } = open;
               out[open.at] = { kind: "env", from, to: j, env, beginTo, endFrom: i, args, label };
             }
+            const close = shellCloses.get(i);
+            if (close) out.push(close);
           }
         }
       } else if (VERBATIM_ENVS.has(env)) {

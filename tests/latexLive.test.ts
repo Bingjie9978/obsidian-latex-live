@@ -1375,6 +1375,44 @@ test("#23 a longtable is a table with its head once; a \\multirow spans its rows
   }
 });
 
+test("#23 a box around a table is a shell: its lines collapse, the table shows at its normal size", async () => {
+  const p = await project();
+  try {
+    const doc = [
+      "\\resizebox{\\textwidth}{!}{% scaled", // 1
+      "\\begin{tabular}{ll}",
+      "a & b \\\\",
+      "\\end{tabular}",
+      "}", // 5
+      "\\scalebox{0.8}[1]{",
+      "\\begin{tabular}{l}",
+      "c",
+      "\\end{tabular}}", // 9
+      "\\begin{adjustbox}{max width=\\textwidth}",
+      "\\rotatebox[origin=c]{90}{",
+      "\\begin{tabular}{l}",
+      "d",
+      "\\end{tabular}",
+      "}", // 15
+      "\\end{adjustbox}",
+      "\\resizebox{2cm}{!}{x}", // 17: not a shell
+      "end",
+    ].join("\n");
+    const view = await p.mount(doc);
+    await waitFor(() => view.contentDOM.querySelectorAll(".lsp-lp-table").length === 3);
+    await rendered(view);
+    assert.deepEqual(tableCells(view), [["a", "b"], ["c"], ["d"]]);
+    assert.deepEqual(lines(view), ["<>", "[w]", "<>", "<>", "[w]", "<>", "<>", "[w]", "<>", "<>", "\\resizebox{2cm}{!}{x}", "end"]);
+    // The cursor on a shell's line: that line's source.
+    cursorAt(view, view.state.doc.line(1).from + 2);
+    await rendered(view);
+    assert.equal(lines(view)[0], "\\resizebox{\\textwidth}{!}{% scaled");
+    view.destroy();
+  } finally {
+    p.done();
+  }
+});
+
 test("#23 a wrapper's \\begin line collapses with the layout commands after it, on its line or the next, around a table", async () => {
   const p = await project();
   try {
