@@ -96,10 +96,11 @@ import { LiveContext, LiveLanguage, RenderWidget, TextWidget, renderConstruct } 
 //       (env.openTitle). Source while the cursor is on its line.
 //   #21 overlays: the `<..>` of \item and \only, \onslide, \uncover, \visible, \alt hides with
 //       their braces (the content stays); \pause is a hidden command (#15).
-//   #22 tables and TikZ pictures are not cropped unless env.beamerCrops() (SyncTeX places a
-//       beamer frame as a whole page): a table is drawn from its source (#23), a TikZ picture
-//       folds to one line `▸ TikZ (n lines)` until the cursor enters it (a click on the line
-//       puts it there); longtable stays source.
+//   #22 tables and TikZ pictures are not cropped unless env.beamerCrops(): a table is drawn from
+//       its source (#23), a TikZ picture folds to one line `▸ TikZ (n lines)` until the cursor
+//       enters it (a click on the line puts it there); longtable stays source. With it they crop
+//       as in a paper, from their position records (blockCrop's Positions; SyncTeX places a
+//       frame as a whole page, and answers only where the records do not).
 //   #23 a tabular, tabular* or tabularx without a crop (#14, #22) whose \begin and \end are
 //       alone on their lines (the \begin line may go on with \toprule or \hline, the \end line
 //       with a wrapper's \end): a table widget over its lines (latexTable: columns, rows, rules,

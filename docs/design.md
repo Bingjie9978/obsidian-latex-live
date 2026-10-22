@@ -107,7 +107,7 @@ LatexSession(root) -> Compiler: 串行队列，最多一个在跑、一个在等
 - **导言区缓存**（pdfLaTeX）：用 mylatexformat 把 `\begin{document}` 之前的内容 dump 成格式文件，
   后台构建，不阻塞当前编译。缓存键是引擎和导言区文本的哈希，
   加上导言区读入的本项目文件（如 `qq_defs.tex`、本地 `.cls`）的 mtime。
-  格式损坏时自动退回普通编译。
+  格式损坏时自动退回普通编译。格式里还烤着位置记录器（见“位置记录”），记录器版本也进缓存键。
 - **输出目录**放在 `$TMPDIR`，不往 vault 里写 aux/pdf；`\include` 需要的子目录会预先建好。
 
 ## 开发中踩到的坑
@@ -116,6 +116,8 @@ LatexSession(root) -> Compiler: 串行队列，最多一个在跑、一个在等
   `<outdir>//abs/path...`，进程直接退出。改成按名字传格式、用 `TEXFORMATS` 指向输出目录。
 - 上面这个问题一开始被旧日志掩盖了：进程没写日志，插件读到的是上一次的日志，
   于是报告"编译成功、0.01 s"。现在每次编译前删除旧日志，测试也检查日志头里确实加载了缓存格式。
+- mylatexformat 会跳过一遍读入的第一行（直到 `\begin{document}`）：用格式的那一遍，命令行上加在主文件前面的
+  `\input` 会被吞掉，编译报 “no legal \end found”。要注入的东西放进格式（包装文件代替主文件）。
 - macOS 上 TeX 报告的是物理路径（`/private/var/...`），vault 用逻辑路径，
   依赖匹配、缓存失效和 SyncTeX 跳转都需要做映射（`logicalMapper`）。
 
@@ -906,6 +908,35 @@ LaTeX 这边的调用不用改。
   一行可见的行而不纠正。在 ch3 的 MathJax 公式块（68–74 行）上复现：渲染视口是 [1, 74] 时从 67 行下移到 76 行，块在视口
   中间时到 75 行。和裁剪无关，MathJax 块一样。
 - GUI 检查 H5、H6、L13 仍然待做。
+
+### 位置记录：裁剪的第一来源（2026-10-22）
+
+SyncTeX 在 beamer 里把一帧当成一整页（帧体是宏参数，记录都带 `\end{frame}` 的行号），所以 beamer 的图和表原先不裁。
+现在每次编译都让 TeX 自己记下最外层的 TikZ 图和表格落在哪里（`src/tex/llpos.ts`），裁剪先用这份记录，没有可用的
+记录才问 SyncTeX。可行性在 `~/Data/appdata/latex-live-pos-spike/REPORT.md`。
+
+- **记录器**：一段 TeX（`POS_RECORDER`，写到输出目录的 `latex-live-pos.tex`），给 tikzpicture、tikzcd、circuitikz、
+  tabular、tabular*、tabularx 挂 `env/…/after` 钩子：最外层、水平模式下用 `\lastbox` 取回刚排好的盒子，前面放一个
+  savepos 和一个延迟的 `\write`，盒子原样放回（页面不变）。送出页面时写一行 `\llpos{序号}{环境}{页}{x}{y}{宽}{高}{深}{文件}{行}`
+  到 `<job>.llpos`。pgfpicture 不挂（beamer 主题用它画装饰）。没有 LaTeX 2020-10 的钩子或 savepos 原语时什么都不做。
+- **注入**（用户的 .tex 不改）：
+  - 不用格式的一遍（XeLaTeX、LuaLaTeX、格式还没好的 pdfLaTeX）：`-jobname=<job>` 加 `\input{记录器}\input{主文件}`；
+    不写 `-jobname` 时作业名会变成记录器的名字。
+  - pdfLaTeX 的导言区格式：mylatexformat 会吞掉一遍读入的第一行（直到 `\begin{document}`），命令行上的 `\input` 会被
+    吞掉。所以记录器烤进格式：`buildFormat` 读一个包装文件 `<job>-preamble-wrap.tex`（记录器 + 主文件）代替主文件，
+    记录器版本进格式缓存键（`formatKey`）。输出目录里的这两个文件不算格式的依赖（每次都重写）。
+  - latexmk：`-usepretex=\input{记录器}` 加 `-jobname`。
+  - 每次快速编译前删掉旧的 `.llpos`；结果落地时会话把记录读进 `CompiledPdf.positions`（下一遍开始前）。
+- **配对**（`blockCrop.ts` 的 `pairedRecord`，只用于 "picture" 块）：
+  - 论文：（文件、环境、`\end` 行）恰好一条记录。
+  - beamer：帧里最外层的被记录环境排成一个种类序列（带 `overlay` 选项的不算）；这一帧的记录按页分组、按序号排，
+    每页的种类序列在源序列里必须恰好有一种子序列嵌入；块取最后一张显示它的幻灯片上的盒子（被遮住的内容也排版，盒子相同）。
+  - 区域就是盒子，上下各留 2 pt（pgf 的笔画会超出包围盒一点），左右 1.5 pt，再裁到墨迹。
+- **退回 SyncTeX**：零尺寸记录、`overlay` 选项；在 `\resizebox`/`\scalebox`/`\rotatebox`/`\reflectbox`/`adjustbox` 里面
+  （记录的是缩放前的盒子）；被 `\foreach` 重复；一帧里某页嵌入不了或有两种嵌法（同种类的 `\only` 二选一、`\foreach`、
+  宏里来的图）；`[fragile]` 帧（记录指向 `.vrb`）；longtable、pgfpicture（不记录）；一行上两条同种记录。
+- beamer 里只有打开 **Crop tabular/TikZ in beamer** 时才请求裁剪（latexLive #22，默认关）；打开后上面的规则让图和表
+  大多拿到紧的裁剪，退回 SyncTeX 的仍是整页式的区域。
 
 ## 片段编译与光标处预览（P6，2026-09-29）
 

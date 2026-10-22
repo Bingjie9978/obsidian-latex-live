@@ -65,6 +65,12 @@
     stamp `<job>-preamble.json` (its key and the project files its preamble read,
     with mtimes), deleted before a rebuild and when the format proves broken;
     other runs (fragment compiles) take a format only through `readyPreambleFormat`.
+  - mylatexformat swallows the first line a run reads, up to `\begin{document}`:
+    an `\input` put before the root on the command line of a run with the preamble
+    format is lost and the run dies ("no legal \end found"). Inject through the
+    format instead (`buildFormat` reads a wrapper in place of the root; the position
+    recorder's version is part of `formatKey`). Runs without a format need an explicit
+    `-jobname`, or the job is named after the injected file.
   - Delete the job log before each run so a run that dies early never
     reports the previous log as success.
     A full latexmk no-op may reuse the existing PDF only when this invocation exits 0,
