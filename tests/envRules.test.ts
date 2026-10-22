@@ -108,7 +108,7 @@ test("settings JSON: literal names, known alias targets, a wrapper is no alias; 
   assert.throws(() => parseUserRules({ formulas: { myeq: "equation" }, wrappers: ["myeq"] }), /both a formula alias and a wrapper/);
 });
 
-test("Mod-click target: the \\label outside comments", () => {
+test("jump target of a reference: the \\label outside comments", () => {
   const d = doc("% \\label{a}\ntext\n\\label{a} \\label{b}");
   assert.equal(labelIn(d, "a"), "% \\label{a}\ntext\n".length);
   assert.equal(labelIn(d, "c"), null);
