@@ -242,7 +242,7 @@ const PICTURES = [
 ].join("\n");
 
 for (const [engine, name] of [["pdflatex", "main.tex"], ["pdflatex", "my main.tex"], ["xelatex", "main.tex"], ["lualatex", "main.tex"]] as [Engine, string][]) {
-  test(`${engine} records the positions of pictures and tables (root "${name}")`, { skip }, async () => {
+  test(`${engine} records the positions of TikZ pictures (root "${name}")`, { skip }, async () => {
     const dir = project({ [name]: PICTURES });
     const h = harness(join(dir, name), { engine });
     h.compiler.request();
@@ -250,14 +250,14 @@ for (const [engine, name] of [["pdflatex", "main.tex"], ["pdflatex", "my main.te
     assert.equal(r.pdfWritten, true, r.rawLog.slice(-800));
     assert.equal(r.pdfPath, join(h.outDir, name.replace(/\.tex$/, ".pdf")), "the job keeps the root's name");
     const pos = readLlpos(r.pdfPath, dir)!;
-    // Outermost ones only (not the tabular in a node); an overlay picture has no size.
-    assert.deepEqual(pos.map((p) => [p.env, p.page, p.line]), [["tikzpicture", 1, 4], ["tabular", 1, 8], ["tikzpicture", 1, 9], ["tikzpicture", 1, 10], ["tabularx", 2, 14]]);
+    // Pictures only (tables are drawn, never cropped: #23); an overlay picture has no size.
+    assert.deepEqual(pos.map((p) => [p.env, p.page, p.line]), [["tikzpicture", 1, 4], ["tikzpicture", 1, 9], ["tikzpicture", 1, 10]]);
     assert.ok(pos.every((p) => p.file === join(dir, name)));
     const [pic] = pos;
     // 2 cm by 1 cm plus the line width, in bp; x after "Text " in the text block (1in + margin).
     assert.ok(Math.abs(pic.width - 57.1) < 1 && Math.abs(pic.height - 28.8) < 1, JSON.stringify(pic));
     assert.ok(pic.x > 72 && pic.x < 200 && pic.y > 600, JSON.stringify(pic));
-    assert.equal(pos[2].width, 0);
+    assert.equal(pos[1].width, 0);
     h.compiler.dispose();
   });
 }
