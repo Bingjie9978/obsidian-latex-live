@@ -28,7 +28,7 @@
 //       caption reads "Figure n: ", every gutter number sits on its line (±1 px); a reference
 //       chip (labelJump.ts) shows a pointer and an underline on hover; a click on it, plain or
 //       with Cmd/Ctrl, scrolls to the rendered formula holding the \label 60 lines down and
-//       flashes it, the cursor staying put; a click 2 px beside it or ArrowRight onto it reveals its source; a chip whose \label is in
+//       flashes it, the cursor on the line above; a click 2 px beside it or ArrowRight onto it reveals its source; a chip whose \label is in
 //       another file calls `elsewhere` once per click, 5 of 5
 // The page bundles the real shared modules (keyArbiter first, live preview in its
 // compartment) with a LaTeX-like test language. Formulas render with MathJax 3.2.2 when the
@@ -811,13 +811,13 @@ async function b9({ page, evaluate }) {
   await sleep(100);
   const hover = await evaluate(`(() => { const s = getComputedStyle(__view.contentDOM.querySelector('[data-ll-ref-key="eq:far"]')); return { cursor: s.cursor, line: s.textDecorationLine }; })()`);
   check("B9", "hovering a reference chip shows a pointer and an underline", hover.cursor === "pointer" && hover.line.includes("underline"), hover);
-  // The \label is under a rendered display block: the cursor stays (a cursor there would turn the
-  // block back into source), the view scrolls to the block and the rendered block flashes.
+  // The \label is under a rendered display block: the cursor goes to the line above it (a cursor in
+  // it would turn the block back into source), the view scrolls to the block and it flashes.
   const flashed = () => evaluate(`(() => { const v = __view, box = v.scrollDOM.getBoundingClientRect(), els = [...v.contentDOM.querySelectorAll(".ll-reveal-flash")];
     const r = els[0]?.getBoundingClientRect(); return { count: els.length, rendered: els[0]?.classList.contains("lsp-lp-render") ?? false, visible: !!r && r.top >= box.top && r.bottom <= box.bottom, line: v.state.doc.lineAt(v.state.selection.main.head).number }; })()`);
   const plain = await clickAt(far.x, far.y);
   const plainFlash = await flashed();
-  check("B9", "a plain click on the \\eqref chip scrolls to the rendered formula and flashes it, the cursor stays", plain.elsewhere === 0 && plainFlash.count === 1 && plainFlash.rendered && plainFlash.visible && plainFlash.line === 76, { plain, plainFlash });
+  check("B9", "a plain click on the \\eqref chip scrolls to the rendered formula and flashes it, the cursor sits on the line above it", plain.elsewhere === 0 && plainFlash.count === 1 && plainFlash.rendered && plainFlash.visible && plainFlash.line === 72 && plain.visible, { plain, plainFlash });
   await sleep(1400);
   const gone = await flashed();
   check("B9", "the flash ends", gone.count === 0, gone);

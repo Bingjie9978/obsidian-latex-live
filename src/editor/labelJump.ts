@@ -39,9 +39,12 @@ export function labelIn(doc: Text, key: string): number | null {
 }
 
 /**
- * Show where a jump landed. A label under a rendered block (a formula) leaves the cursor alone:
- * moving it there would turn the block back into source, and the block is what the reader wants to
- * see, so the rendered block flashes. Elsewhere the cursor moves to the label and its line flashes.
+ * Show where a jump landed. A label under a rendered block (a formula) puts the cursor on the
+ * line just above the block (below it at the document's start), not in it: that would turn the
+ * block back into source, and the block is what the reader wants to see, so the rendered block
+ * flashes. The cursor must come along, or whatever scrolls the cursor back into view later (a
+ * click's mouseup, a re-render) takes the view back to where the jump started. Elsewhere the
+ * cursor moves to the label and its line flashes.
  */
 function landOn(view: EditorView, at: number): void {
   const block = view.lineBlockAt(at);
@@ -51,7 +54,8 @@ function landOn(view: EditorView, at: number): void {
     flashLine(view, at);
     return;
   }
-  view.dispatch({ effects: EditorView.scrollIntoView(block.from, { y: "center" }) });
+  const next = block.from > 0 ? block.from - 1 : Math.min(block.to + 1, view.state.doc.length);
+  view.dispatch({ selection: { anchor: next }, effects: EditorView.scrollIntoView(block.from, { y: "center" }) });
   view.focus();
   // The block's DOM exists once the scroll has been measured; wait a few frames for it.
   const win = view.dom.ownerDocument.defaultView ?? window;
