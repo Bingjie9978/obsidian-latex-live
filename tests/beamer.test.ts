@@ -38,7 +38,23 @@ test("detection in beamer: layout macros hidden, frame macros banners, \\include
   assert.equal(mergeEnvRules(EMPTY_USER_RULES, paper).hidden.has("pause"), false);
 });
 
-test("frameStarts: \\begin{frame} and banner calls outside comments; a root's from \\begin{document}", () => {
+test("detection in beamer: a register filled while typesetting or a discarded argument stays source", () => {
+  const d = detectEnvRules([
+    [
+      PREAMBLE,
+      "\\newcommand{\\DeckNotes}{}", // filled by \appto below
+      "\\newcommand{\\DeckSkip}[1]{\\setlength{\\DeckItemSkip}{6pt}}", // #1 unused
+      "\\newcommand{\\DeckUses}{\\DeckSkip{x}\\DeckGap}", // through a command that stays source
+      "\\newcommand{\\DeckPart}[1]{\\DeckFigure{#1}\\DeckNotes}", // its layout part is a register
+    ].join("\n"),
+    "\\appto\\DeckNotes{\\item later}",
+  ]);
+  assert.deepEqual([...d.hidden.keys()].sort(), ["DeckFamily@grouped", "DeckFamily@table", "DeckGap", "DeckLayout"]);
+  assert.deepEqual([...d.images.keys()], ["DeckFigure"], "an image macro around a register is not an image");
+  assert.deepEqual([...d.banners.keys()], ["sectionframe"]);
+});
+
+test("frameStarts:\\begin{frame} and banner calls outside comments; a root's from \\begin{document}", () => {
   const banners = new Map([["sectionframe", { args: 3, optional: false }]]);
   const s = "\\sectionframe{a}{b}{c}\n% \\begin{frame}\n\\begin{frame}{x}\n\\end{frame}\n\\sectionframes{no}";
   assert.deepEqual(frameStarts(s, banners).map((i) => s.slice(i, i + 6)), ["\\secti", "\\begin"]);
