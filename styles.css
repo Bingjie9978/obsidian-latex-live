@@ -56,7 +56,8 @@ SOFTWARE.
   background: transparent;
 }
 /* The line a jump (inverse SyncTeX) landed on, for FLASH_MS (src/editor/reveal.ts). */
-.ll-editor-content .cm-editor .cm-line.ll-reveal-flash {
+.ll-editor-content .cm-editor .cm-line.ll-reveal-flash,
+.ll-editor-content .cm-editor .lsp-lp-render.ll-reveal-flash {
   animation: ll-reveal-flash 1.5s ease-out;
 }
 @keyframes ll-reveal-flash {
