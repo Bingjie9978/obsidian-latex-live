@@ -8,8 +8,9 @@
 //   Detection a \newenvironment / \NewDocumentEnvironment whose begin code is exactly
 //             `\begin{E}` and end code `\end{E}` for a built-in formula environment E is an
 //             alias of E; one whose code is only wrapper environments and layout commands is a
-//             wrapper; a \newcommand whose body is only layout commands is hidden. Anything
-//             else is not guessed.
+//             wrapper; a \newcommand whose body is only layout commands and uses every
+//             argument is hidden, unless the sources assign the name while typesetting
+//             (runtimeAssigned). Anything else is not guessed.
 //   Beamer    when the root's class is beamer (docs/beamer.md): font sizes and \pause hide too;
 //             layout detection also reads \setlength, \addtolength, \addvspace, font sizes,
 //             \renewcommand{\arraystretch}{..} and \csname P#n\endcsname over hidden commands named
@@ -300,7 +301,7 @@ export function detectEnvRules(sources: readonly string[]): DetectedRules {
   const wrappers = new Set<string>();
   const hidden = new Map<string, Arity>();
   const beamer = sources.length > 0 && isBeamer(sources[0]);
-  const commands = new Map<string, { args: number; optional: boolean; body: string }>();
+  const commands = new Map<string, { arity: Arity; body: string }>();
   const layoutWrappers = DEFAULT_RULES.wrappers;
   const layoutHidden = DEFAULT_RULES.hidden;
   const forget = (name: string) => {
@@ -355,10 +356,12 @@ export function detectEnvRules(sources: readonly string[]): DetectedRules {
       if (!body) continue;
       hidden.delete(name);
       commands.delete(name); // keep source order for the last definition
-      commands.set(name, { args, optional, body: body.text });
-      if (!beamer && onlyLayout(body.text, layoutWrappers, layoutHidden)) hidden.set(name, { args, optional });
+      commands.set(name, { arity: { args, optional }, body: body.text });
+      if (!beamer && usesAll(body.text, args) && onlyLayout(body.text, layoutWrappers, layoutHidden)) hidden.set(name, { args, optional });
     }
   }
+  const runtime = runtimeAssigned(sources, commands);
+  for (const name of runtime) hidden.delete(name);
   if (!beamer) return { math, wrappers, hidden, beamer, banners: new Map(), images: new Map() };
   // Beamer: a layout command may use the project's other layout commands, so repeat until
   // nothing new is found (\DeckLayout uses \DeckNormal and \DeckFamily@...).
@@ -367,21 +370,21 @@ export function detectEnvRules(sources: readonly string[]): DetectedRules {
   const project = { project: new Set(commands.keys()) };
   const known = new Map<string, Arity | null>([...layoutHidden, ...BEAMER_HIDDEN]);
   for (const [name, c] of commands) {
-    if (/\\begin\s*\{\s*frame\s*\}/.test(c.body)) banners.set(name, { args: c.args, optional: c.optional });
+    if (/\\begin\s*\{\s*frame\s*\}/.test(c.body)) banners.set(name, c.arity);
   }
   for (let changed = true; changed; ) {
     changed = false;
     for (const [name, c] of commands) {
       if (hidden.has(name) || images.has(name) || banners.has(name)) continue;
-      if (onlyLayout(c.body, layoutWrappers, known, project)) {
-        hidden.set(name, { args: c.args, optional: c.optional });
-        known.set(name, { args: c.args, optional: c.optional });
+      if (!runtime.has(name) && usesAll(c.body, c.arity.args) && onlyLayout(c.body, layoutWrappers, known, project)) {
+        hidden.set(name, c.arity);
+        known.set(name, c.arity);
         changed = true;
         continue;
       }
       const path = imagePath(c.body, images, layoutWrappers, known, project);
-      if (path > 0 && path <= c.args) {
-        images.set(name, { args: c.args, optional: c.optional, path });
+      if (path > 0 && path <= c.arity.args) {
+        images.set(name, { ...c.arity, path });
         changed = true;
       }
     }
@@ -431,6 +434,77 @@ function imagePath(
   }
   rest += code.slice(last);
   return path && onlyLayout(rest, wrappers, hidden, beamer) ? path : 0;
+}
+
+/** Whether a body of `args` arguments uses each one: an unused one is typed text that would vanish with the command. */
+function usesAll(body: string, args: number): boolean {
+  return Array.from({ length: args }, (_, k) => new RegExp(`#${k + 1}(?!\\d)`)).every((re) => re.test(body));
+}
+
+/** Primitives and etoolbox/LaTeX helpers that change the macro named right after them. */
+const ASSIGN = String.raw`\\(?:g@addto@macro|addto@macro|appto|gappto|eappto|xappto|def|gdef|edef|xdef|let)(?![A-Za-z@])`;
+const ASSIGN_NAME = new RegExp(String.raw`${ASSIGN}\s*\\([A-Za-z@]+)`, "g");
+const ASSIGN_ARG = new RegExp(String.raw`${ASSIGN}(?:\s*\\expandafter)*\s*#(\d)`, "g");
+
+/** The arguments of a call from s[i] (just after the command name), by position; a missing optional one is "". */
+function callArgs(s: string, i: number, arity: Arity): string[] | null {
+  const out: string[] = [];
+  let k = skipSpace(s, i);
+  if (arity.optional) {
+    const g = s[k] === "[" ? group(s, k) : null;
+    out.push(g?.text ?? "");
+    if (g) k = skipSpace(s, g.end);
+  }
+  while (out.length < arity.args) {
+    const g = s[k] === "{" ? group(s, k) : null;
+    if (!g) return null;
+    out.push(g.text);
+    k = skipSpace(s, g.end);
+  }
+  return out;
+}
+
+/**
+ * Names the sources change while the document typesets: `\g@addto@macro\x`, `\def\x`, `\let\x`,
+ * … anywhere, and a name passed to a macro that assigns its `#k` (`\collect{\educationContent}`),
+ * also through macros that pass their own `#j` on (`\researchEntry` -> `\@experienceEntry` ->
+ * `\collect`). What such a macro's definition says empty is not what prints.
+ */
+function runtimeAssigned(sources: readonly string[], commands: ReadonlyMap<string, { arity: Arity; body: string }>): Set<string> {
+  const assigned = new Set<string>();
+  for (const s of sources) for (const m of s.matchAll(ASSIGN_NAME)) assigned.add(m[1]);
+  // Macro -> the argument positions it assigns, directly or through another such macro.
+  const assigns = new Map<string, Set<number>>();
+  for (const [name, d] of commands) {
+    const ks = [...d.body.matchAll(ASSIGN_ARG)].map((m) => Number(m[1]));
+    if (ks.length) assigns.set(name, new Set(ks));
+  }
+  const passed = (src: string, onArg: (arg: string) => void) => {
+    for (const [name, ks] of assigns) {
+      const arity = commands.get(name)!.arity;
+      for (const m of src.matchAll(new RegExp(String.raw`\\${name}(?![A-Za-z@])`, "g"))) {
+        const args = callArgs(src, (m.index ?? 0) + m[0].length, arity);
+        for (const k of ks) onArg((args?.[k - 1] ?? "").replace(/\\noexpand\s*/g, "").trim());
+      }
+    }
+  };
+  for (let changed = true; changed; ) {
+    changed = false;
+    for (const [name, d] of commands) passed(d.body, (arg) => {
+      const j = /^#(\d)$/.exec(arg);
+      if (!j) return;
+      const ks = assigns.get(name) ?? new Set<number>();
+      if (ks.has(Number(j[1]))) return;
+      ks.add(Number(j[1]));
+      assigns.set(name, ks);
+      changed = true;
+    });
+  }
+  for (const s of sources) passed(s, (arg) => {
+    const a = /^\\([A-Za-z@]+)$/.exec(arg);
+    if (a) assigned.add(a[1]);
+  });
+  return assigned;
 }
 
 /** A key that is equal exactly when two rule sets are. */
