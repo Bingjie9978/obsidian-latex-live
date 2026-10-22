@@ -25,9 +25,11 @@
 //       its first row, over none of its lines
 //   B9  LaTeX Live's own language (latexLive.ts) with the live editor rules (src/tex/envRules.ts):
 //       a subequations shell, a \centering line and a user-hidden \DeckLayout{..} collapse, a
-//       caption reads "Figure n: ", every gutter number sits on its line (±1 px); a Mod-click on
-//       an \eqref chip (labelJump.ts) moves the cursor to the \label 60 lines down and scrolls it
-//       into view, a plain click reveals the chip's source
+//       caption reads "Figure n: ", every gutter number sits on its line (±1 px); a reference
+//       chip (labelJump.ts) shows a pointer and an underline on hover; a click on it, plain or
+//       with Cmd/Ctrl, moves the cursor to the \label 60 lines down and scrolls it into view; a
+//       click 2 px beside it or ArrowRight onto it reveals its source; a chip whose \label is in
+//       another file calls `elsewhere` once per click, 5 of 5
 //   B10 a beamer deck (docs/beamer.md) with the plugin's styles: a frame card's title bar, its
 //       page in the corner, a \sectionframe banner, the title page and the TikZ fold; every
 //       gutter number sits on its line (±1 px); ArrowDown visits each shown line of the card in
@@ -372,7 +374,7 @@ function check(id, name, pass, detail) {
   console.log(`${pass ? "ok  " : "FAIL"} ${id} ${name}${detail === undefined ? "" : `: ${typeof detail === "string" ? detail : JSON.stringify(detail)}`}`);
 }
 
-const KEYS = { ArrowDown: [40, "ArrowDown"], ArrowUp: [38, "ArrowUp"], Escape: [27, "Escape"], a: [65, "KeyA"] };
+const KEYS = { ArrowDown: [40, "ArrowDown"], ArrowUp: [38, "ArrowUp"], ArrowRight: [39, "ArrowRight"], Escape: [27, "Escape"], a: [65, "KeyA"] };
 /** A key press; modifiers: 4 Meta (Cmd), 8 Shift. */
 async function press(page, key, modifiers = 0) {
   const [code, name] = KEYS[key];
@@ -789,8 +791,9 @@ const B9_DOC = [
   "\\end{figure}",
   "\\DeckLayout{two} Deck text.", // 10
   "See \\eqref{eq:far} below.", // 11
+  "Also \\eqref{eq:other} elsewhere.", // 12: its \\label is in another file
   ...Array.from({ length: 60 }, (_, i) => `Filler line ${i + 1}.`),
-  "\\begin{equation}", // 72
+  "\\begin{equation}", // 73
   "  y = 2 \\label{eq:far}",
   "\\end{equation}",
   "End.",
@@ -816,21 +819,55 @@ async function b9({ page, evaluate }) {
   const lines = shown.text.map((t) => t.replace(/^\d+:/, ""));
   check("B9", "the shell, \\centering and \\DeckLayout{..} hide; the caption reads Figure 1:", !lines.some((t) => /subequations|centering|DeckLayout|\\caption/.test(t)) && lines.some((t) => t.includes("Figure 1: A plot")) && lines.some((t) => t.trim() === "Deck text."), shown.text);
   check("B9", "gutter numbers sit on their lines (±1 px)", shown.worst <= 1, shown);
-  const click = async (modifiers) => {
-    const chip = await evaluate(`(() => { const r = __view.contentDOM.querySelector('[data-ll-ref-key="eq:far"]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
-    for (const type of ["mousePressed", "mouseReleased"]) await page("Input.dispatchMouseEvent", { type, x: chip.x, y: chip.y, button: "left", clickCount: 1, modifiers });
+  // The plugin's chip styles (the hover underline); removed at the end.
+  await evaluate(`(() => { const s = document.createElement("style"); s.id = "b9-styles"; s.textContent = ${JSON.stringify(readFileSync(join(ROOT, "styles.css"), "utf8"))}; document.head.append(s); return true; })()`);
+  const chipAt = (key) => evaluate(`(() => { const el = __view.contentDOM.querySelector('[data-ll-ref-key="${key}"]'); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, left: r.left, right: r.right }; })()`);
+  const state = () => evaluate(`(() => { const v = __view, h = v.state.selection.main.head, box = v.scrollDOM.getBoundingClientRect(), at = v.coordsAtPos(h);
+    return { line: v.state.doc.lineAt(h).number, visible: !!at && at.top >= box.top && at.bottom <= box.bottom, elsewhere: __jumpedElsewhere.length,
+      chips: v.contentDOM.querySelectorAll("[data-ll-ref-key]").length }; })()`);
+  const clickAt = async (x, y, modifiers = 0) => {
+    for (const type of ["mousePressed", "mouseReleased"]) await page("Input.dispatchMouseEvent", { type, x, y, button: "left", clickCount: 1, modifiers });
     await sleep(300);
-    return evaluate(`(() => { const v = __view, h = v.state.selection.main.head, box = v.scrollDOM.getBoundingClientRect(), at = v.coordsAtPos(h);
-      return { line: v.state.doc.lineAt(h).number, visible: !!at && at.top >= box.top && at.bottom <= box.bottom, elsewhere: __jumpedElsewhere.length }; })()`);
+    return state();
   };
+  // Back to the top with the cursor on the last line, so no construct near the chips is revealed.
+  const reset = async () => { await evaluate("__view.dispatch({ selection: { anchor: __view.state.doc.length } }), __view.scrollDOM.scrollTop = 0, true"); await sleep(300); };
+  await reset();
+  const far = await chipAt("eq:far");
+  await page("Input.dispatchMouseEvent", { type: "mouseMoved", x: far.x, y: far.y });
+  await sleep(100);
+  const hover = await evaluate(`(() => { const s = getComputedStyle(__view.contentDOM.querySelector('[data-ll-ref-key="eq:far"]')); return { cursor: s.cursor, line: s.textDecorationLine }; })()`);
+  check("B9", "hovering a reference chip shows a pointer and an underline", hover.cursor === "pointer" && hover.line.includes("underline"), hover);
+  const plain = await clickAt(far.x, far.y);
+  check("B9", "a plain click on the \\eqref chip moves to its \\label (line 74) and scrolls it into view", plain.line === 74 && plain.visible && plain.elsewhere === 0, plain);
+  await reset();
   const mod = (await evaluate("/Mac|iPhone|iPad/.test(navigator.platform)")) ? 4 : 2; // Meta on macOS, else Ctrl
-  const jumped = await click(mod);
-  check("B9", "Mod-click on the \\eqref chip moves to its \\label (line 73) and scrolls it into view", jumped.line === 73 && jumped.visible && jumped.elsewhere === 0, jumped);
-  // Back to the top with the cursor on the last line, so no construct near the chip is revealed.
-  await evaluate("__view.dispatch({ selection: { anchor: __view.state.doc.length } }), __view.scrollDOM.scrollTop = 0, true");
-  await sleep(300);
-  const plain = await click(0);
-  check("B9", "a plain click on the chip places the cursor at the chip (line 11)", plain.line === 11, plain);
+  const withMod = await clickAt(far.x, far.y, mod);
+  check("B9", "Cmd/Ctrl-click jumps too", withMod.line === 74 && withMod.visible, withMod);
+  // Editing the reference: a click just beside the chip, or the arrow keys, reveal its source.
+  for (const [side, dx] of [["right", 2], ["left", -2]]) {
+    await reset();
+    const chip = await chipAt("eq:far");
+    const beside = await clickAt(side === "right" ? chip.right + dx : chip.left + dx, chip.y);
+    const source = await evaluate("__view.state.doc.line(11).text.includes('\\\\eqref') && !__view.contentDOM.querySelector('[data-ll-ref-key=\"eq:far\"]')");
+    check("B9", `a click 2 px ${side} of the chip puts the cursor on line 11 and reveals \\eqref{eq:far}`, beside.line === 11 && source && beside.elsewhere === 0, beside);
+  }
+  await reset();
+  await evaluate(`(() => { const v = __view, line = v.state.doc.line(11); v.dispatch({ selection: { anchor: line.from + line.text.indexOf("\\\\eqref") - 1 } }); v.focus(); return true; })()`);
+  await press(page, "ArrowRight");
+  await sleep(200);
+  const arrow = await evaluate("!__view.contentDOM.querySelector('[data-ll-ref-key=\"eq:far\"]')");
+  check("B9", "ArrowRight onto the chip reveals its source", arrow, arrow);
+  // A label in another file: every click calls `elsewhere` once, the cursor stays put.
+  const before = (await state()).elsewhere;
+  const tries = [];
+  for (let i = 0; i < 5; i++) {
+    await reset();
+    const other = await chipAt("eq:other");
+    tries.push(other ? (await clickAt(other.x, other.y)).elsewhere - before : -1);
+  }
+  check("B9", "a click on a reference whose \\label is in another file opens it, 5 of 5", tries.join() === "1,2,3,4,5" && (await evaluate("__jumpedElsewhere.slice(-5).every((k) => k === 'eq:other')")), tries);
+  await evaluate("document.getElementById('b9-styles').remove(), true");
 }
 
 const B10_DOC = [
