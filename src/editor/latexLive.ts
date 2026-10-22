@@ -151,7 +151,7 @@ export interface LatexLiveEnv {
   titlePage?(): TitlePage | null;
   /** Beamer: open the \title line (#20). */
   openTitle?(): void;
-  /** Beamer: crop tables and TikZ pictures as in a paper (the "Crop tabular/TikZ in beamer" setting). */
+  /** Beamer: crop TikZ pictures as in a paper (the "Crop TikZ in beamer" setting). */
   beamerCrops?(): boolean;
 }
 

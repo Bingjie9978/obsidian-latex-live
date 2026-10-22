@@ -934,8 +934,8 @@ SyncTeX 在 beamer 里把一帧当成一整页（帧体是宏参数，记录都�
 - **退回 SyncTeX**：零尺寸记录、`overlay` 选项；在 `\resizebox`/`\scalebox`/`\rotatebox`/`\reflectbox`/`adjustbox` 里面
   （记录的是缩放前的盒子）；被 `\foreach` 重复；一帧里某页嵌入不了或有两种嵌法（同种类的 `\only` 二选一、`\foreach`、
   宏里来的图）；`[fragile]` 帧（记录指向 `.vrb`）；pgfpicture（不记录）；一行上两条同种记录。
-- beamer 里只有打开 **Crop tabular/TikZ in beamer** 时才请求裁剪（latexLive #22，默认关）；打开后上面的规则让图和表
-  大多拿到紧的裁剪，退回 SyncTeX 的仍是整页式的区域。
+- beamer 里只有打开 **Crop TikZ in beamer** 时才请求裁剪（latexLive #22，默认关，只管 TikZ 图；表格总是画成表）；
+  打开后上面的规则让图大多拿到紧的裁剪，退回 SyncTeX 的仍是整页式的区域。
 
 ## 片段编译与光标处预览（P6，2026-09-29）
 

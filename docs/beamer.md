@@ -56,15 +56,15 @@ PDF 和导出仍按 TeX 处理。
 
 ## 设置
 
-**Crop tabular/TikZ in beamer**（默认关）：打开后，beamer 里的表格和 TikZ 图和论文一样显示为 PDF 裁剪图，
-不再折叠；没有裁剪图（还没编译、没有预览）的表格仍显示为简单表格。论文里的裁剪不受这个设置影响。
+**Crop TikZ in beamer**（默认关）：打开后，beamer 里的 TikZ 图和论文一样显示为 PDF 裁剪图，不再折叠。
+表格不受这个设置影响，总是由插件画成表格（论文里也一样，从不裁剪）。论文里的裁剪不受这个设置影响。
 
 裁剪的来源依次是：
 
-1. 编译时插件注入的位置记录（不改 .tex 文件）：TeX 记下每个最外层图和表的盒子。一帧的每张幻灯片按图和表的种类顺序
+1. 编译时插件注入的位置记录（不改 .tex 文件）：TeX 记下每个最外层 TikZ 图的盒子。一帧的每张幻灯片按图的种类顺序
    对回源码，块取最后一张显示它的幻灯片上的盒子，所以 `\pause`、`\only`、`\uncover`、`\begin{frame}<2>` 都能裁紧。
 2. SyncTeX，用于记录对不上的块：带 `overlay` 选项的图、`\resizebox`/`\scalebox`/`\rotatebox`/`adjustbox` 里面的、
-   `\foreach` 重复的、`[fragile]` 帧里的、longtable，以及一帧里有同种类的二选一（如两个 `\only` 各一张 TikZ 图）或
+   `\foreach` 重复的、`[fragile]` 帧里的，以及一帧里有同种类的二选一（如两个 `\only` 各一张 TikZ 图）或
    多出来的记录（宏里画的图）时整帧。SyncTeX 在 beamer 里常给出整页大小的区域。
 
 细节见 [设计记录](./design.md) 的“位置记录”。

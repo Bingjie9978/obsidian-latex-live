@@ -1539,11 +1539,11 @@ test("beamer: frame cards with their title bar and page, banners, the title page
     assert.equal(view.contentDOM.querySelector(".ll-tikz-fold"), null);
     assert.ok((view.contentDOM.textContent ?? "").includes("\\draw (0,0)"));
     view.destroy();
-    // The setting on: the picture is a crop request, as in a paper (no crop here: its source).
+    // The setting on: the picture is a crop request, as in a paper (no crop here: its source); the table is drawn either way.
     const cropped = make(true);
     await rendered(cropped);
     assert.equal(cropped.contentDOM.querySelector(".ll-tikz-fold"), null);
-    assert.equal(tableCells(cropped).length, 2, "no crop to show: the table");
+    assert.equal(tableCells(cropped).length, 2, "a table, never a crop");
     cropped.destroy();
   } finally {
     p.done();
