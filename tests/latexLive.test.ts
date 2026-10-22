@@ -1206,7 +1206,7 @@ const CROP_DOC = [
   "    A \\arrow[r] & B",
   "  \\end{tikzcd}",
   "\\end{equation*}",
-  "\\begin{table}[htbp]", // 9-14: #14 in a float
+  "\\begin{table}[htbp]", // 9-14: #23 in a float, drawn (never a crop)
   "  \\begin{tabular}{ll}",
   "    a & $x^2$ \\\\",
   "  \\end{tabular}",
@@ -1221,22 +1221,23 @@ const CROP_DOC = [
   "end",
 ].join("\n");
 
-test("P5 #4 and #14: PDF crops for TikZ pictures, tables and rejected block formulas; source when changed", async () => {
+test("P5 #4 and #14: PDF crops for TikZ pictures and rejected block formulas, tables drawn; source when changed", async () => {
   const f = fakeCrops();
   f.compiled = CROP_DOC;
   const p = await project(f.crops);
   try {
     const view = await p.mount(CROP_DOC, undefined, CROP_DOC.length);
-    await waitFor(() => cropCards(view).length === 3);
+    await waitFor(() => cropCards(view).length === 2);
     assert.deepEqual(cropCards(view), [
       "crop 1|picture|\\begin{tikzpicture}[scale=2]",
       "crop 1|math|\\begin{equation*}",
-      "crop 1|picture|\\begin{tabular}{ll}",
     ]);
+    await waitFor(() => !!view.contentDOM.querySelector(".lsp-lp-table"));
+    assert.deepEqual(tableCells(view), [["a", "𝑥2"]], "a table is drawn from its source, never cropped");
     assert.deepEqual(
       lines(view),
       ["[w]", "[w]", "<>", "[w]", "  T", "<>", "$\\undefinedmacro$ inline", "<lsp-lp-box is-second>", "end"],
-      "the float's \\begin and \\end lines collapse around the crop, its caption stays (no label: only \\caption hides)",
+      "the float's \\begin and \\end lines collapse around the table, its caption stays (no label: only \\caption hides)",
     );
     assert.match(view.contentDOM.querySelector(".lsp-lp-box")!.textContent!, /\\begin\{tikzpicture\}/, "inside elegantbook's tcolorbox: source");
     assert.deepEqual(errors(view), ["$\\undefinedmacro$"], "inline math never crops");
@@ -1250,7 +1251,7 @@ test("P5 #4 and #14: PDF crops for TikZ pictures, tables and rejected block form
     view.dispatch({ selection: EditorSelection.cursor(view.state.doc.length) });
     await rendered(view);
     assert.equal(lines(view)[0], "\\begin{tikzpicture}[scale=2]");
-    assert.equal(cropCards(view).length, 2);
+    assert.equal(cropCards(view).length, 1);
     // A rejected formula without a crop is MathJax's error again.
     view.dispatch({ changes: { from: view.state.doc.line(6).from + 4, insert: "C " } });
     await rendered(view);
@@ -1266,23 +1267,22 @@ test("P5 a new compile's crop replaces the last one when it lands; a crop that f
   const p = await project(f.crops);
   try {
     const view = await p.mount(CROP_DOC, undefined, CROP_DOC.length);
-    await waitFor(() => cropCards(view).length === 3);
+    await waitFor(() => cropCards(view).length === 2);
     // A new result: every block's request changes; the old crops stay until the new ones land.
     f.seq = 2;
     f.delay = 60;
     p.render.cropsChanged(p.root);
     await sleep(30);
-    assert.deepEqual(cropCards(view).map((c) => c!.slice(0, 7)), ["crop 1|", "crop 1|", "crop 1|"], "the last crops meanwhile");
+    assert.deepEqual(cropCards(view).map((c) => c!.slice(0, 7)), ["crop 1|", "crop 1|"], "the last crops meanwhile");
     await waitFor(() => cropCards(view).every((c) => c!.startsWith("crop 2|")), 3000);
-    assert.equal(cropCards(view).length, 3);
+    assert.equal(cropCards(view).length, 2);
 
-    // A crop that cannot render (no SyncTeX records): #14 a table drawn from its source (#23), #4 MathJax's error.
+    // A crop that cannot render (no SyncTeX records): #14 the picture's source, #4 MathJax's error.
     f.seq = 3;
     f.delay = 5;
-    f.failing = new Set(["\\begin{tabular}{ll}", "\\begin{equation*}"]);
+    f.failing = new Set(["\\begin{tikzpicture}[scale=2]", "\\begin{equation*}"]);
     p.render.cropsChanged(p.root);
-    await waitFor(() => cropCards(view).length === 1 && cropCards(view)[0]!.startsWith("crop 3|"), 3000);
-    await waitFor(() => !!view.contentDOM.querySelector(".lsp-lp-table"));
+    await waitFor(() => cropCards(view).length === 0 && lines(view)[0] === "\\begin{tikzpicture}[scale=2]", 3000);
     assert.deepEqual(tableCells(view), [["a", "𝑥2"]]);
     assert.ok(errors(view).includes("\\begin{equation*}"));
   } finally {
@@ -1298,7 +1298,7 @@ const cellChars = (el: Node): string =>
 const tableCells = (view: EditorView) =>
   [...view.contentDOM.querySelectorAll(".lsp-lp-table tr")].map((tr) => [...tr.querySelectorAll("td")].map(cellChars));
 
-test("#23 a tabular without a crop is a table: rules, spans, formulas, styles and chips in its cells; source while touched", async () => {
+test("#23 a tabular is a table: rules, spans, formulas, styles and chips in its cells; source while touched", async () => {
   const p = await project();
   try {
     const doc = [

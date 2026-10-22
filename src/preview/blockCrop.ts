@@ -5,7 +5,7 @@ import { PdfBox, forwardSearchAll, synctexStamp } from "../tex/synctex";
 import { PosRecord, RECORDED_ENVS } from "../tex/llpos";
 import type { PdfDoc, Viewport } from "./pdfRenderer";
 
-// PDF crops (design 4.6): a block MathJax cannot draw (a TikZ picture, a table, a formula it
+// PDF crops (design 4.6): a block MathJax cannot draw (a TikZ picture, a formula it
 // rejects) or that the hover shows as printed (a theorem box, a figure) is cut out of the last
 // compile's PDF. Free of the obsidian module: main.ts passes Obsidian's pdf.js in, and tests
 // run the SyncTeX part against real TeX.
@@ -15,7 +15,7 @@ import type { PdfDoc, Viewport } from "./pdfRenderer";
 //             nearest to its current line giving the compiled lines (`compiledLines`; a search,
 //             not change mapping: lines inserted above must not pick the neighbouring block).
 //             Changed, a file written while the compile ran, no preview (no session): no crop.
-//   Positions a TikZ picture or table (RECORDED_ENVS) takes the box its compile recorded
+//   Positions a TikZ picture (RECORDED_ENVS) takes the box its compile recorded
 //             (CompiledPdf.positions, llpos) when exactly one record is its own (`pairedRecord`),
 //             drawn RECORD_PAD_PT around it; anything else asks SyncTeX (Lines, Geometry). In a
 //             paper a record is its own by (file, env, \end line). A beamer frame's body is
@@ -27,7 +27,7 @@ import type { PdfDoc, Viewport } from "./pdfRenderer";
 //             a macro) has none. No record either: a zero-size box or an `overlay` option, a
 //             block inside \resizebox, \scalebox, \rotatebox, \reflectbox or an adjustbox (the
 //             box is the unscaled one) or repeated by \foreach, a [fragile] frame (records
-//             name the .vrb), longtable and pgfpicture (not recorded).
+//             name the .vrb), pgfpicture (not recorded).
 //   Lines     SyncTeX (`forwardSearchAll`, every record) over the block's lines without its
 //             \begin line (`queryLines`: at most QUERY_LINES inside, the first and last ones, and
 //             the \end line), plus the nearest lines above and below it that are not blank or a
@@ -38,7 +38,7 @@ import type { PdfDoc, Viewport } from "./pdfRenderer";
 //             last line of a paragraph a display ends is tagged with the line that ended it.
 //   Geometry  measured on the synthetic books (`cropRegion`, by CropKind). A formula, a block of
 //             running text or a float takes every record left (an equation's \end line holds its
-//             number); a TikZ picture or table takes its lines' records and the enclosing box its
+//             number); a TikZ picture takes its lines' records and the enclosing box its
 //             \end line reports (tikz-cd's cells sit where TeX set them, not where pgf drew them;
 //             the picture box holds them), never the paragraph line around one in running text;
 //             a tcolorbox (elegantbook's theorems) takes its \end line's records alone: they are
@@ -70,7 +70,7 @@ import type { PdfDoc, Viewport } from "./pdfRenderer";
 //             "Invert preview colors" says so (`is-inverted`, part of the request).
 
 /**
- * How a block's records make its crop (see Geometry): a formula, a TikZ picture or table, a
+ * How a block's records make its crop (see Geometry): a formula, a TikZ picture, a
  * tcolorbox, a block of running text (a theorem-like environment), a figure or table float.
  */
 export type CropKind = "math" | "picture" | "box" | "block" | "float";
@@ -321,9 +321,9 @@ const lineAt = (source: string, offset: number) => {
   for (let k = source.indexOf("\n"); k >= 0 && k < offset; k = source.indexOf("\n", k + 1)) line++;
   return line;
 };
-/** The \begin and \end tags of crop environments (CROP_ENVS in the editor), adjustboxes and frames. */
+/** The \begin and \end tags of recorded environments, adjustboxes and frames. */
 function* envTags(text: string, from: number): Generator<RegExpExecArray> {
-  const re = /\\(begin|end)\s*\{(tikzpicture|tikzcd|pgfpicture|circuitikz|tabular\*?|tabularx|longtable|adjustbox|frame)\}/g;
+  const re = /\\(begin|end)\s*\{(tikzpicture|tikzcd|circuitikz|adjustbox|frame)\}/g;
   re.lastIndex = from;
   for (let m = re.exec(text); m; m = re.exec(text)) yield m;
 }

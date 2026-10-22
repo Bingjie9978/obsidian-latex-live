@@ -1,12 +1,12 @@
 import type { Text } from "@codemirror/state";
 import { Decoration, EditorView, WidgetType } from "@codemirror/view";
 import type { CropKind } from "../preview/blockCrop";
-import type { EnvRules } from "../tex/envRules";
+import { blockEnvKind, type EnvRules } from "../tex/envRules";
 import type { TheoremDef, TheoremMap } from "../tex/theorems";
 import { texText } from "../tex/texText";
 import { LatexRefs, citeText, formulaRefs, refText } from "./latexRefs";
 import { LatexArg, LatexBanner, LatexConstruct, LatexEnv, LatexMath, LatexTitlePage, TextStyle, blocksAround, hasConstructs, scanLatex } from "./latexScan";
-import { TABLE_ENVS, TablePart, cellParts, parseTabular, tableSpec } from "./latexTable";
+import { TablePart, cellParts, parseTabular, tableSpec } from "./latexTable";
 import { prepareMath } from "./mathjaxProject";
 import { LiveContext, LiveLanguage, RenderWidget, TextWidget, renderConstruct } from "./shared/livePreview";
 
@@ -69,16 +69,14 @@ import { LiveContext, LiveLanguage, RenderWidget, TextWidget, renderConstruct } 
 //       keeps the source with the dotted error underline (its tooltip says why); a path with a
 //       macro in it, or a bare name found nowhere (TeX may find it in its tree), stays source
 //       without it.
-//   #14 a TikZ picture (tikzpicture, tikzcd, pgfpicture, circuitikz) or a table (tabular,
-//       tabular*, tabularx, longtable) whose \begin and \end are alone on their lines: a block
-//       widget with its crop from the last compile's PDF (env.crop: blockCrop.ts, while a
-//       preview holds the root's session and the block's text is the one compiled), in a paper
-//       card; the source while the cursor is on its lines, with no preview below (the crop
-//       would be stale). A new result's crop replaces the last one when it lands (the old one
-//       stays meanwhile); changed or without a crop, a TikZ picture is source and a table is
-//       drawn from its source (#23).
-//       Nothing inside a tcolorbox (elegantbook's theorems) is cropped: SyncTeX places what
-//       pgf moved ~20 pt off (cropKindOf).
+//   #14 a TikZ picture (envRules' BLOCK_ENVS: tikzpicture, tikzcd, pgfpicture, circuitikz) whose
+//       \begin and \end are alone on their lines: a block widget with its crop from the last
+//       compile's PDF (env.crop: blockCrop.ts, while a preview holds the root's session and the
+//       block's text is the one compiled), in a paper card; the source while the cursor is on
+//       its lines, with no preview below (the crop would be stale). A new result's crop replaces
+//       the last one when it lands (the old one stays meanwhile); changed or without a crop, it
+//       is source. Nothing inside a tcolorbox (elegantbook's theorems) is cropped: SyncTeX
+//       places what pgf moved ~20 pt off (cropKindOf). Tables are never cropped (#23).
 //   #17 the lines after \centering and in a center environment are centered (a line class; papers
 //       too); they stay text.
 //   Beamer (env.rules.beamer; docs/beamer.md):
@@ -96,14 +94,13 @@ import { LiveContext, LiveLanguage, RenderWidget, TextWidget, renderConstruct } 
 //       (env.openTitle). Source while the cursor is on its line.
 //   #21 overlays: the `<..>` of \item and \only, \onslide, \uncover, \visible, \alt hides with
 //       their braces (the content stays); \pause is a hidden command (#15).
-//   #22 tables and TikZ pictures are not cropped unless env.beamerCrops(): a table is drawn from
-//       its source (#23), a TikZ picture folds to one line `▸ TikZ (n lines)` until the cursor
-//       enters it (a click on the line puts it there); longtable stays source. With it they crop
-//       as in a paper, from their position records (blockCrop's Positions; SyncTeX places a
-//       frame as a whole page, and answers only where the records do not).
-//   #23 a tabular, tabular* or tabularx without a crop (#14, #22) whose \begin and \end are
-//       alone on their lines (the \begin line may go on with \toprule or \hline, the \end line
-//       with a wrapper's \end): a table widget over its lines (latexTable: columns, rows, rules,
+//   #22 a TikZ picture is not cropped unless env.beamerCrops(): it folds to one line
+//       `▸ TikZ (n lines)` until the cursor enters it (a click on the line puts it there). With
+//       it, it crops as in a paper, from its position record (blockCrop's Positions; SyncTeX
+//       places a frame as a whole page, and answers only where the records do not).
+//   #23 a table (BLOCK_ENVS: tabular, tabular*, tabularx, longtable), in papers and in beamer,
+//       whose \begin and \end are alone on their lines (the \begin line may go on with \toprule
+//       or \hline, the \end line with a wrapper's \end): a table widget over its lines (latexTable: columns, rows, rules,
 //       \multicolumn spans), its cells' formulas, styles and chips as in the running text and
 //       their other text as it prints (an unknown command as written); a cell with a formula
 //       MathJax rejects shows its source. Inside a center environment it is centered. The source
@@ -164,11 +161,6 @@ export interface TitlePage {
   readonly date: string;
 }
 
-/** TikZ pictures and tables: PDF crops (#14). */
-export const CROP_ENVS = new Set(["tikzpicture", "tikzcd", "pgfpicture", "circuitikz", "tabular", "tabular*", "tabularx", "longtable"]);
-/** The pictures of CROP_ENVS: folded in beamer (#22). */
-const TIKZ_ENVS = new Set(["tikzpicture", "tikzcd", "pgfpicture", "circuitikz"]);
-
 /** LaTeX-only metadata for reference inspection; normal widget editing/drag events stay CM's. */
 class ReferenceWidget extends TextWidget {
   constructor(text: string, cls: string, title: string, readonly command: string, readonly key: string, readonly from: number, readonly to: number) {
@@ -200,7 +192,7 @@ const movesContent = (env: string, theorems: TheoremMap): boolean => {
 export function cropKindOf(doc: Text, block: { from: number; to: number }, env: string | null, theorems: TheoremMap): CropKind | null {
   if (blocksAround(doc, block.from, block.to).some((b) => movesContent(b.env, theorems))) return null;
   if (env === null) return "math";
-  if (CROP_ENVS.has(env)) return "picture";
+  if (blockEnvKind(env) === "picture") return "picture";
   if (movesContent(env, theorems)) return "box";
   if (/^(?:figure|table)\*?$/.test(env)) return "float";
   return theorems.has(env) ? "block" : null;
@@ -274,10 +266,10 @@ export function latexLiveLanguage(env: LatexLiveEnv): LiveLanguage<LatexConstruc
   return {
     scan: (doc) => scanLatex(doc, env.rules),
     // A theorem box tests the selection on its \begin and \end lines only (decorateBox): a move
-    // inside a long one leaves it be. Every environment but a crop (which reveals over its lines)
-    // says so, since the scan this is memoized with cannot see which ones the theorem map boxes.
+    // inside a long one leaves it be. Every environment but a table or picture (which reveals over
+    // its lines) says so, since the scan this is memoized with cannot see which ones the theorem map boxes.
     // A centered run's line class never depends on the selection.
-    reveals: (c) => (c.kind === "env" && !CROP_ENVS.has(c.env) ? [[c.from, c.beginTo], [c.endFrom, c.endFrom]] : c.kind === "center" ? [] : null),
+    reveals: (c) => (c.kind === "env" && !blockEnvKind(c.env) ? [[c.from, c.beginTo], [c.endFrom, c.endFrom]] : c.kind === "center" ? [] : null),
     decorate(c, ctx) {
       const { doc } = ctx.state;
       if ("env" in c && c.env && env.visualization?.().source.has(c.env)) return;
@@ -346,16 +338,14 @@ export function latexLiveLanguage(env: LatexLiveEnv): LiveLanguage<LatexConstruc
         const beamer = !!env.rules?.beamer;
         if (beamer && c.env === "frame") decorateFrame(c, ctx, env);
         else if (def) decorateBox(c, def, ctx, refs, env.file);
-        else if (beamer && CROP_ENVS.has(c.env) && !env.beamerCrops?.()) {
-          if (TIKZ_ENVS.has(c.env)) foldPicture(c, ctx);
-          else if (TABLE_ENVS.has(c.env)) decorateTable(c, ctx);
-        } else if (CROP_ENVS.has(c.env)) {
-          // #23: a table without a crop (or whose crop failed) is drawn from its source.
-          const table = TABLE_ENVS.has(c.env) ? () => decorateTable(c, ctx) : undefined;
-          const kind = env.crop ? cropKindOf(doc, c, c.env, refs.theorems) : null;
-          const crop = kind && env.crop!(doc, c.from, c.to, kind);
-          if (crop) decorateCrop(ctx, c, crop, table);
-          else table?.();
+        else if (blockEnvKind(c.env) === "table") decorateTable(c, ctx);
+        else if (blockEnvKind(c.env) === "picture") {
+          if (beamer && !env.beamerCrops?.()) foldPicture(c, ctx);
+          else {
+            const kind = env.crop ? cropKindOf(doc, c, c.env, refs.theorems) : null;
+            const crop = kind && env.crop!(doc, c.from, c.to, kind);
+            if (crop) decorateCrop(ctx, c, crop);
+          }
         }
         return;
       }

@@ -1,4 +1,5 @@
 import { tableColumns, type RuleWeight, type TableColumn, type TableRule } from "../export/tables";
+import { blockEnvKind } from "../tex/envRules";
 import { texText } from "../tex/texText";
 import type { LatexConstruct, TextStyle } from "./latexScan";
 
@@ -13,9 +14,6 @@ import type { LatexConstruct, TextStyle } from "./latexScan";
 // \multirow shows its text in its own cell (no rowspan). A source the parse cannot follow
 // (unbalanced braces or `$`, a tabular inside, an inner environment left open) is null: it
 // stays source. Pure but for tableNode's DOM.
-
-/** The environments drawn as tables. */
-export const TABLE_ENVS = new Set(["tabular", "tabular*", "tabularx"]);
 
 /** A cell: its content's offsets in the parsed source, the columns it spans and their spec. */
 export interface TabularCell {
@@ -45,8 +43,6 @@ const RULES = new Map<string, RuleWeight>([
 ]);
 /** Commands between rows that draw nothing here (their arguments go with them). */
 const SPACING = new Set(["addlinespace", "morecmidrules", "noalign"]);
-/** Inner environments that make the parse give up. */
-const NESTED = new Set(["tabular", "tabular*", "tabularx", "longtable"]);
 
 /** The index after the brace group opened at s[i], or -1 when it never closes. */
 function groupEnd(s: string, i: number): number {
@@ -171,7 +167,7 @@ export function parseTabular(src: string): TabularLayout | null {
       if (!e) return null;
       const which = src.slice(e.from, e.to).trim();
       if (name === "begin") {
-        if (math === null && NESTED.has(which)) return null;
+        if (math === null && blockEnvKind(which) === "table") return null;
         if (math === null) inner.push(which);
       } else if (math === null) {
         if (!inner.length) {

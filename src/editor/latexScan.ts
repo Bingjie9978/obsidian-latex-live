@@ -1,8 +1,7 @@
 import type { Text } from "@codemirror/state";
 import { texText } from "../tex/texText";
-import { Arity, DEFAULT_RULES, EnvRules, commandEnd, layoutSettingEnd } from "../tex/envRules";
+import { Arity, DEFAULT_RULES, EnvRules, commandEnd, blockEnvKind, layoutSettingEnd } from "../tex/envRules";
 import { CITE_COMMANDS, VERBATIM_ENVS, iffalseEnd, iffalseStarts } from "./latexHighlight";
-import { TABLE_ENVS } from "./latexTable";
 
 // The constructs a LaTeX document renders: pure, no CodeMirror view and no Obsidian, so the
 // hover and live preview share one scan and tests run it directly (design 4.3, 4.4).
@@ -33,8 +32,9 @@ import { TABLE_ENVS } from "./latexTable";
 //             nothing in it is a construct (macro files have no \begin{document}).
 //   Envs      any other environment whose \begin (with the arguments and \label on its line) and
 //             \end are alone on their lines, within MAX_LINES lines, is an `env` construct: the
-//             language decides with the project's theorem map whether it is a box (#12), or a
-//             PDF crop (#14: TikZ pictures, whose inside is skipped, and tables). The arguments
+//             language decides with the project's theorem map whether it is a box (#12), and
+//             envRules' BLOCK_ENVS whether it is a table (#23) or a TikZ picture (#14, its
+//             inside skipped). The arguments
 //             are scanned on (a title's math); nested environments pair by name. `blockAt`
 //             finds them (and figure and table floats) for the render hover's crops.
 //   Cost      memoized per document (Text), like the highlighter's own state. Formulas inside
@@ -137,8 +137,8 @@ export interface LatexArg {
 
 /**
  * An environment whose \begin and \end are alone on their lines (not a list, center, figure,
- * table, formula or verbatim): a theorem-like box when the project defines it (#12), a PDF crop
- * when it is a TikZ picture or a table (#14).
+ * table, formula or verbatim): a theorem-like box when the project defines it (#12), else what
+ * envRules' BLOCK_ENVS makes it (a table #23, a TikZ picture #14).
  */
 export interface LatexEnv {
   readonly kind: "env";
@@ -605,11 +605,6 @@ const DEFINERS = new Set([
   "newenvironment", "renewenvironment", "NewDocumentEnvironment", "RenewDocumentEnvironment",
   "DeclareMathOperator", "DeclarePairedDelimiter", "DeclarePairedDelimiterX", "newtheorem",
 ]);
-/**
- * TikZ code (#14, a PDF crop in P5): nothing in it is a construct. `($(a)!(b)!(c)$)` is a calc
- * coordinate, `$\t$` a \foreach variable, a node's `[label={\textbf{A}}]` an option.
- */
-const TIKZ_ENVS = new Set(["tikzpicture", "tikzcd", "pgfpicture", "circuitikz"]);
 /** The counters of enumerate levels 1-4 (\setcounter{enumii}{3} inside a list). */
 const ENUM_COUNTERS: Record<string, number> = { enumi: 1, enumii: 2, enumiii: 3, enumiv: 4 };
 /**
@@ -1237,7 +1232,7 @@ function scanText(s: string, rules: EnvRules): LatexConstruct[] {
           const open = envs[at];
           if (open) {
             envs.length = at;
-            const alone = TABLE_ENVS.has(env) ? tableAlone(s, i, j, TABLE_END_TAIL) : aloneOnLines(s, i, j);
+            const alone = blockEnvKind(env) === "table" ? tableAlone(s, i, j, TABLE_END_TAIL) : aloneOnLines(s, i, j);
             if (open.at >= 0 && alone && lineBreaks(s, open.from, i) <= MAX_LINES) {
               const { from, beginTo, args, label } = open;
               out[open.at] = { kind: "env", from, to: j, env, beginTo, endFrom: i, args, label };
@@ -1247,9 +1242,11 @@ function scanText(s: string, rules: EnvRules): LatexConstruct[] {
       } else if (VERBATIM_ENVS.has(env)) {
         const e = s.indexOf(`\\end{${env}}`, j);
         j = e < 0 ? n : e + env.length + 6;
-      } else if (TIKZ_ENVS.has(env)) {
-        // A half-typed picture (no \end yet) hides nothing below it. One whose \begin (with
-        // its options) and \end are alone on their lines is an `env` (a PDF crop, #14).
+      } else if (blockEnvKind(env) === "picture") {
+        // TikZ code: nothing in it is a construct. `($(a)!(b)!(c)$)` is a calc coordinate, `$\t$`
+        // a \foreach variable, a node's `[label={\textbf{A}}]` an option. A half-typed picture
+        // (no \end yet) hides nothing below it. One whose \begin (with its options) and \end are
+        // alone on their lines is an `env` (a PDF crop, #14).
         const e = s.indexOf(`\\end{${env}}`, j);
         if (e >= 0) {
           const to = e + env.length + 6;
@@ -1324,7 +1321,7 @@ function scanText(s: string, rules: EnvRules): LatexConstruct[] {
           LABEL.lastIndex = lineEnd(s, beginTo) + 1;
           label = LABEL.lastIndex < n ? LABEL.exec(s) : null;
         }
-        const alone = TABLE_ENVS.has(env) ? tableAlone(s, i, beginTo, TABLE_BEGIN_TAIL) : aloneOnLines(s, i, beginTo);
+        const alone = blockEnvKind(env) === "table" ? tableAlone(s, i, beginTo, TABLE_BEGIN_TAIL) : aloneOnLines(s, i, beginTo);
         const at = alone ? out.push(null) - 1 : -1;
         envs.push({ env, from: i, beginTo, args, label: label ? label[1].trim() : null, at });
       }

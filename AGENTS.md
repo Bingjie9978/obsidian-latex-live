@@ -354,13 +354,14 @@
     A name whose extension is none of graphicx's (`loss_lr0.01`) gets the extensions appended.
   - crops (P5): latexScan reports a TikZ picture (tikzpicture, tikzcd, pgfpicture, circuitikz; its
     inside still skipped) whose `\begin` and `\end` are alone on their lines as an `env`, like tables;
-    `CROP_ENVS` and a block formula whose MathJax render failed get `LatexLiveEnv.crop` (TexRender's
+    one description, envRules' `BLOCK_ENVS` (`blockEnvKind`: "table" or "picture"), says which.
+    Pictures and a block formula whose MathJax render failed get `LatexLiveEnv.crop` (TexRender's
     `cropOf`: the crop service's `locate`) and render (epoch-free requests) as a `crop` block
     widget through `renderConstruct(.., { below: false })`: its source while the cursor is on its
     lines, no preview below. While a new result's crop is pending, the block shows the crop its
     `previous` request drew (the key changes with every result, so the core's stale-while-revalidate
     cannot match it); changed, without a preview or failing (quietly) it is source (#4: MathJax's
-    error), a `TABLE_ENVS` tabular a table (#23).
+    error). Tables are drawn (#23), never cropped.
   - tables (#23, `src/editor/latexTable.ts`, pure; `tests/latexTable.test.ts`): `tabular`,
     `tabular*` and `tabularx` (not longtable or array) whose `\begin` line may go on with
     `\toprule`/`\hline` and whose `\end` line with further `\end`s (latexScan's `tableAlone`).

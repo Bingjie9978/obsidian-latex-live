@@ -25,7 +25,7 @@ import { applyTemplateVisualization, parseTemplateProfiles, type TemplateVisuali
 // live preview's renderer (`rendererFor`). Obsidian's MathJax functions come in through the
 // host, so tests run this on the same MathJax bundle.
 //   Hover     `hoverTarget`: the formula at the pointer, else the innermost block that crops
-//             (latexLive's cropKindOf: a TikZ picture, a table, a theorem-like box, a figure or
+//             (latexLive's cropKindOf: a TikZ picture, a theorem-like box, a figure or
 //             table float). A display formula owning its lines shows its crop from the last
 //             compile when its text is the one compiled, else MathJax (a formula inside a
 //             tcolorbox never crops; a compile running does not wait); inline math is MathJax.

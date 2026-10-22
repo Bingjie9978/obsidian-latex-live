@@ -73,6 +73,21 @@ export const DEFAULT_WRAPPERS: readonly string[] = [
   "columns", "column",
 ];
 
+/**
+ * What the live editor does with a block environment whose \begin and \end are alone on their
+ * lines, beyond the rules above (latexLive #14, #22, #23). Not user rules: each needs its own code.
+ *   table    drawn by the plugin from its source (latexTable): its rows, columns and merged
+ *            cells, editable; in papers and in beamer, never cropped from the PDF.
+ *   picture  TikZ code (nothing in it is a construct): cropped from the last compile's PDF in a
+ *            paper; folded to one line in beamer unless the beamer crops setting is on.
+ */
+export type BlockEnvKind = "table" | "picture";
+export const BLOCK_ENVS: ReadonlyMap<string, BlockEnvKind> = new Map([
+  ...["tabular", "tabular*", "tabularx", "longtable"].map((e): [string, BlockEnvKind] => [e, "table"]),
+  ...["tikzpicture", "tikzcd", "pgfpicture", "circuitikz"].map((e): [string, BlockEnvKind] => [e, "picture"]),
+]);
+export const blockEnvKind = (env: string): BlockEnvKind | null => BLOCK_ENVS.get(env) ?? null;
+
 /** The built-in hidden commands and their arities. */
 export const DEFAULT_HIDDEN: ReadonlyMap<string, Arity> = new Map([
   ...["centering", "raggedright", "raggedleft", "vfill", "hfill", "medskip", "smallskip", "bigskip", "noindent", "par", "newpage", "clearpage"]

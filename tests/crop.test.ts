@@ -186,34 +186,36 @@ test("pairedRecord: a paper's block takes the one record of its \\end line; scal
     "  \\draw (0,0) -- (1,1);",
     "\\end{tikzpicture}", // 3
     "\\resizebox{\\linewidth}{!}{%",
-    "\\begin{tabular}{cc}", // 5
-    "  a & b",
-    "\\end{tabular}}", // 7
-    "\\begin{center}\\begin{tabular}{c} x \\end{tabular}\\end{center}", // 8
+    "\\begin{tikzcd}", // 5
+    "  a \\arrow[r] & b",
+    "\\end{tikzcd}}", // 7
+    "\\begin{center}\\begin{tikzcd} x \\end{tikzcd}\\end{center}", // 8
     "\\foreach \\k in {1,2} {\\begin{tikzpicture}\\draw (0,0) circle (1);\\end{tikzpicture}}", // 9
     "\\begin{tikzpicture}[remember picture, overlay]", // 10
     "\\end{tikzpicture}", // 11
     "\\begin{adjustbox}{width=\\linewidth}", // 12
-    "\\begin{tabular}{c} y \\end{tabular}", // 13
+    "\\begin{tikzcd} y \\end{tikzcd}", // 13
     "\\end{adjustbox}",
     "% \\begin{tikzpicture}",
     "\\begin{tikzpicture}\\draw (0,0) -- (1,0);\\end{tikzpicture} % \\end{tikzpicture}", // 16
-    "\\begin{longtable}{c} z \\end{longtable}", // 17
+    "\\begin{tabular}{c} z \\end{tabular}", // 17
     "\\begin{tikzpicture}", // 18
     "\\end{tikzpicture}", // 19
   ].join("\n");
   const file = "/p/main.tex";
   const records = [
     rec(1, "tikzpicture", 1, file, 3),
-    rec(2, "tabular", 1, file, 7),
-    rec(3, "tabular", 1, file, 8),
+    rec(2, "tikzcd", 1, file, 7),
+    rec(3, "tikzcd", 1, file, 8),
     rec(4, "tikzpicture", 1, file, 9),
     rec(5, "tikzpicture", 1, file, 9),
     rec(6, "tikzpicture", 1, file, 11, 0),
-    rec(7, "tabular", 1, file, 13),
+    rec(7, "tikzcd", 1, file, 13),
     rec(8, "tikzpicture", 2, file, 16),
     rec(9, "tikzpicture", 2, file, 19, 0),
     rec(10, "tikzpicture", 2, "/p/other.tex", 3),
+    // A table is drawn, never cropped: even a record of its line is not its own.
+    rec(11, "tabular", 2, file, 17),
   ];
   assert.deepEqual(paired(source, records, [[1, 3], [5, 7], [8, 8], [9, 9], [10, 11], [13, 13], [16, 16], [17, 17], [18, 19]]), [1, null, 3, null, null, null, 8, null, null]);
   // Two blocks' records on one line: neither is its own.
@@ -222,17 +224,17 @@ test("pairedRecord: a paper's block takes the one record of its \\end line; scal
   assert.equal(paired(source, records.slice(1), [[1, 3]])[0], null);
 });
 
-test("pairedRecord: a frame's slides embed one way into its pictures and tables; a block takes the last slide's box", () => {
+test("pairedRecord: a frame's slides embed one way into its pictures; a block takes the last slide's box", () => {
   const source = [
     "\\begin{frame}{Pause}", // 1
-    "  \\begin{tabular}{ll} a & b \\\\ \\pause c & d \\end{tabular}", // 2
+    "  \\begin{tikzcd} a \\arrow[r] & b \\end{tikzcd}", // 2
     "  \\pause",
     "  \\begin{tikzpicture}\\draw (0,0) rectangle (2,1);\\end{tikzpicture}", // 4
     "  \\begin{tikzpicture}[overlay]\\draw (0,0) -- (1,1);\\end{tikzpicture}", // 5
     "\\end{frame}", // 6
     "\\begin{frame}{Only}", // 7
     "  \\only<1>{\\begin{tikzpicture}\\draw (0,0) circle (1);\\end{tikzpicture}}", // 8
-    "  \\only<2>{\\begin{tabular}{c} two \\end{tabular}}", // 9
+    "  \\only<2>{\\begin{tikzcd} two \\end{tikzcd}}", // 9
     "\\end{frame}", // 10
     "\\begin{frame}{Alternatives of one kind}", // 11
     "  \\only<1>{\\begin{tikzpicture}\\draw (0,0) circle (1);\\end{tikzpicture}}", // 12
@@ -242,9 +244,9 @@ test("pairedRecord: a frame's slides embed one way into its pictures and tables;
     "  \\foreach \\k in {1,2,3} { \\begin{tikzpicture}\\draw (0,0) circle (0.3);\\end{tikzpicture} }", // 16
     "\\end{frame}", // 17
     "\\begin{frame}[fragile]{Verbatim}", // 18
-    "  \\begin{tabular}{c} \\verb|x| \\end{tabular}", // 19
+    "  \\begin{tikzcd} \\verb|x| \\end{tikzcd}", // 19
     "\\end{frame}", // 20
-    "\\begin{frame}<2>{Restricted}", // 21
+    "\\begin{frame}<2>{Restricted}", // 24
     "  \\begin{tikzpicture}", // 22
     "    \\node {\\begin{tabular}{c} in a node \\end{tabular}};",
     "  \\end{tikzpicture}", // 24
@@ -253,15 +255,15 @@ test("pairedRecord: a frame's slides embed one way into its pictures and tables;
   const file = "/p/main.tex";
   const records = [
     // Pause: two slides, the overlay picture zero-size.
-    rec(1, "tabular", 1, file, 6),
+    rec(1, "tikzcd", 1, file, 6),
     rec(2, "tikzpicture", 1, file, 6),
     rec(3, "tikzpicture", 1, file, 6, 0),
-    rec(4, "tabular", 2, file, 6),
+    rec(4, "tikzcd", 2, file, 6),
     rec(5, "tikzpicture", 2, file, 6),
     rec(6, "tikzpicture", 2, file, 6, 0),
     // Only: one record per slide.
     rec(7, "tikzpicture", 3, file, 10),
-    rec(8, "tabular", 4, file, 10),
+    rec(8, "tikzcd", 4, file, 10),
     // Alternatives of one kind.
     rec(9, "tikzpicture", 5, file, 14),
     rec(10, "tikzpicture", 6, file, 14),
@@ -270,8 +272,8 @@ test("pairedRecord: a frame's slides embed one way into its pictures and tables;
     rec(12, "tikzpicture", 7, file, 17),
     rec(13, "tikzpicture", 7, file, 17),
     // Fragile: the .vrb's.
-    rec(14, "tabular", 8, "/p/main.vrb", 2),
-    // Restricted to slide 2: the tabular in the node is not recorded.
+    rec(14, "tikzcd", 8, "/p/main.vrb", 2),
+    // Restricted to slide 2: the tabular in the node is not recorded (no table is).
     rec(15, "tikzpicture", 9, file, 25),
   ];
   const blocks: [number, number][] = [[2, 2], [4, 4], [5, 5], [8, 8], [9, 9], [12, 12], [13, 13], [16, 16], [19, 19], [22, 24]];
@@ -281,56 +283,62 @@ test("pairedRecord: a frame's slides embed one way into its pictures and tables;
 });
 
 test("recordRegion: a record's box from the page's top left, clipped just around it", () => {
-  const region = recordRegion(rec(1, "tabular", 2, "/p/main.tex", 3, 20), { width: 600, height: 800 });
+  const region = recordRegion(rec(1, "tikzpicture", 2, "/p/main.tex", 3, 20), { width: 600, height: 800 });
   assert.deepEqual(region, { page: 2, x: 50, y: 800 - 101 - 20, width: 20, height: 20, continues: false, top: 800 - 101 - 20 - 2, bottom: 800 - 101 + 2 });
 });
 
-test("pairedRecord on real pdfLaTeX records: a beamer deck's overlays and a paper's scaled tables", { skip: !binDir && "no TeX installation found", timeout: 60_000 }, () => {
+test("pairedRecord on real pdfLaTeX records: a beamer deck's overlays and a paper's scaled pictures; tables are not recorded", { skip: !binDir && "no TeX installation found", timeout: 60_000 }, () => {
   const dir = mkdtempSync(join(tmpdir(), "ll-pos-"));
   try {
     writeFileSync(join(dir, POS_RECORDER_FILE), POS_RECORDER);
     const deck = [
       "\\documentclass{beamer}",
       "\\usepackage{tikz}",
+      "\\usetikzlibrary{cd}",
       "\\begin{document}",
       "\\begin{frame}{Pause}",
-      "  \\begin{tabular}{ll} a & b \\\\ \\pause c & d \\end{tabular}", // 5
+      "  \\begin{tikzcd} A \\end{tikzcd}", // 6
       "  \\pause",
-      "  \\begin{tikzpicture}\\draw (0,0) rectangle (2,1);\\end{tikzpicture}", // 7
+      "  \\begin{tikzpicture}\\draw (0,0) rectangle (2,1);\\end{tikzpicture}", // 8
+      "  \\pause",
+      "  \\begin{tabular}{c} a table \\end{tabular}", // 10
       "\\end{frame}",
       "\\begin{frame}{Only}",
-      "  \\only<1>{\\begin{tikzpicture}\\draw (0,0) circle (1);\\end{tikzpicture}}", // 10
-      "  \\only<2>{\\begin{tabular}{c} only two \\end{tabular}}", // 11
+      "  \\only<1>{\\begin{tikzpicture}\\draw (0,0) circle (1);\\end{tikzpicture}}", // 13
+      "  \\only<2>{\\begin{tikzcd} B \\end{tikzcd}}", // 14
       "\\end{frame}",
       "\\begin{frame}{Foreach of pictures}",
-      "  \\foreach \\k in {1,2,3} { \\begin{tikzpicture}\\draw (0,0) circle (0.3);\\end{tikzpicture} }", // 14
+      "  \\foreach \\k in {1,2,3} { \\begin{tikzpicture}\\draw (0,0) circle (0.3);\\end{tikzpicture} }", // 17
       "\\end{frame}",
       "\\begin{frame}<2>{Restricted}",
-      "  \\begin{tikzpicture}", // 17
+      "  \\begin{tikzpicture}", // 20
       "    \\draw (0,0) rectangle (1,1);",
       "    \\draw<2> (0,0) -- (1,1);",
-      "  \\end{tikzpicture}", // 20
-      "  \\begin{tikzpicture}[remember picture, overlay]\\node at (current page.center) {x};\\end{tikzpicture}", // 21
+      "  \\end{tikzpicture}", // 23
+      "  \\begin{tikzpicture}[remember picture, overlay]\\node at (current page.center) {x};\\end{tikzpicture}", // 24
       "\\end{frame}",
       "\\end{document}",
     ].join("\n");
     const paper = [
       "\\documentclass{article}",
       "\\usepackage{graphicx,tikz}",
+      "\\usetikzlibrary{cd}",
       "\\begin{document}",
       "Text before.",
-      "\\begin{table}[h]\\centering",
+      "\\begin{figure}[h]\\centering",
       "\\resizebox{\\linewidth}{!}{%",
-      "\\begin{tabular}{|c|c|} \\hline a & b \\\\ \\hline", // 7
-      "\\end{tabular}}", // 8
-      "\\end{table}",
+      "\\begin{tikzcd} A", // 8
+      "\\end{tikzcd}}", // 9
+      "\\end{figure}",
       "\\begin{center}",
-      "\\scalebox{0.5}{\\begin{tikzpicture}\\draw (0,0) rectangle (4,2);\\end{tikzpicture}}", // 11
+      "\\scalebox{0.5}{\\begin{tikzpicture}\\draw (0,0) rectangle (4,2);\\end{tikzpicture}}", // 12
       "\\end{center}",
       "\\begin{center}",
-      "\\begin{tabular}{|c|} \\hline plain \\\\ \\hline", // 14
-      "\\end{tabular}", // 15
+      "\\begin{tikzcd} A \\arrow[r] & B", // 15
+      "\\end{tikzcd}", // 16
       "\\end{center}",
+      "\\begin{tabular}{|c|} \\hline a table \\\\ \\hline", // 18
+      "\\end{tabular}", // 19
       "\\end{document}",
     ].join("\n");
     const run = (name: string, text: string) => {
@@ -344,22 +352,24 @@ test("pairedRecord on real pdfLaTeX records: a beamer deck's overlays and a pape
         const r = pairedRecord(source, file, from, to, records);
         return r && `${r.env}@${r.page}`;
       });
-    // Pause: slides 1-3, the last one; Only: one slide each; Foreach: three records, no pairing;
-    // Restricted: its one slide; the overlay picture none.
-    assert.deepEqual(pages([[5, 5], [7, 7], [10, 10], [11, 11], [14, 14], [17, 20], [21, 21]], deck, join(dir, "deck.tex"), deckRecords), [
-      "tabular@3",
+    // Pause: slides 1-3, the last one; the table none; Only: one slide each; Foreach: three
+    // records, no pairing; Restricted: its one slide; the overlay picture none.
+    assert.deepEqual(pages([[6, 6], [8, 8], [10, 10], [13, 13], [14, 14], [17, 17], [20, 23], [24, 24]], deck, join(dir, "deck.tex"), deckRecords), [
+      "tikzcd@3",
       "tikzpicture@3",
+      null,
       "tikzpicture@4",
-      "tabular@5",
+      "tikzcd@5",
       null,
       "tikzpicture@7",
       null,
     ]);
     const paperRecords = run("paper", paper);
-    assert.deepEqual(pages([[7, 8], [11, 11], [14, 15]], paper, join(dir, "paper.tex"), paperRecords), [null, null, "tabular@1"]);
-    const plain = pairedRecord(paper, join(dir, "paper.tex"), 14, 15, paperRecords);
-    // The plain table's box: two columns of rules around one word, about 33 x 15 bp.
-    assert.ok(plain && plain.width > 20 && plain.width < 60 && plain.height > 10 && plain.height < 25, JSON.stringify(plain));
+    assert.deepEqual(pages([[8, 9], [12, 12], [15, 16], [18, 19]], paper, join(dir, "paper.tex"), paperRecords), [null, null, "tikzcd@1", null]);
+    assert.ok(![...deckRecords, ...paperRecords].some((r) => r.env === "tabular"), "tables are not recorded");
+    const plain = pairedRecord(paper, join(dir, "paper.tex"), 15, 16, paperRecords);
+    // The plain diagram's box: two letters and an arrow, about 60 x 10 bp.
+    assert.ok(plain && plain.width > 30 && plain.width < 120 && plain.height > 5 && plain.height < 30, JSON.stringify(plain));
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

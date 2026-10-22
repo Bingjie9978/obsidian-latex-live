@@ -2,8 +2,8 @@ import { readFileSync } from "fs";
 import { resolve } from "path";
 
 // Position records (docs/design.md 4.6, Positions): every compile reads a small recorder first
-// (the compiler writes it to its output dir), which writes where each outermost TikZ picture or
-// table landed in the PDF to `<job>.llpos`. Crops take a block's box from there before asking
+// (the compiler writes it to its output dir), which writes where each outermost TikZ picture
+// landed in the PDF to `<job>.llpos`. Crops take a block's box from there before asking
 // SyncTeX (blockCrop's Positions).
 //   Recorder  the env/<X>/after hook of each RECORDED environment (depth 1, horizontal mode) takes
 //             the box the environment just added back off the list (\lastbox), puts a savepos
@@ -18,10 +18,13 @@ import { resolve } from "path";
 //   Version   POS_RECORDER_VERSION goes into the preamble format's key: a changed recorder
 //             rebuilds the format it is baked into.
 
-/** Environments the recorder records (not pgfpicture: beamer themes draw with it). */
-export const RECORDED_ENVS: ReadonlySet<string> = new Set(["tikzpicture", "tikzcd", "circuitikz", "tabular", "tabular*", "tabularx"]);
+/**
+ * Environments the recorder records: the pictures of envRules' BLOCK_ENVS but pgfpicture (beamer
+ * themes draw with it). Tables are drawn, never cropped.
+ */
+export const RECORDED_ENVS: ReadonlySet<string> = new Set(["tikzpicture", "tikzcd", "circuitikz"]);
 
-export const POS_RECORDER_VERSION = 1;
+export const POS_RECORDER_VERSION = 2;
 /** The recorder's file name in the output dir. */
 export const POS_RECORDER_FILE = "latex-live-pos.tex";
 

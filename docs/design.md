@@ -271,9 +271,9 @@ YOLO 自己的按键映射被过滤掉，只保留渲染，触发走 YOLO 自己
   虚线下划线）；PDF 只显示第一页、白底。PDF 的第一页是异步画的（画的时候公式照常渲染，异步渲染按种类排队）。
 - PDF 裁剪（P5）：要开着预览（会话里才有编译开始时的源文件快照），块的文本要和那时磁盘上的一样（改过、编译开始时
   没打开的文件、预览关着都不裁）。tcolorbox（elegantbook fancy 模式的定理框）里面的块不单独裁：pgf 移动了框里的内容，
-  SyncTeX 报的位置低约 20 pt；框里的显示公式悬停用 MathJax，框里的图悬停显示整个框。实时预览只裁 TikZ 图、表格和
+  SyncTeX 报的位置低约 20 pt；框里的显示公式悬停用 MathJax，框里的图悬停显示整个框。实时预览只裁 TikZ 图和
   MathJax 拒绝的独占整行的显示公式；行内公式从不裁（SyncTeX 只到行）。跨页的块只裁第一页。几何规则是在两本合成书和
-  一个 pdfLaTeX 文档上量出来的（见下文 P5 一节）：在分页处、不在正文里的 TikZ 图和表格可能带进上一页送出时留下的盒子；
+  一个 pdfLaTeX 文档上量出来的（见下文 P5 一节）：在分页处、不在正文里的 TikZ 图可能带进上一页送出时留下的盒子；
   用 PDF 变换缩放的块（`\resizebox`、adjustbox、graphicx 的 `width=`）SyncTeX 记录的是原始尺寸，只靠前后行限制。
   裁剪第一次画时是异步的（35–70 ms，裁剪一次画一个，公式照常渲染）；画好以后是同步的。上一行正文的字形墨迹伸到它的
   TeX 深度以下时（Fandol），裁剪顶边可能带一点墨点（没处理：要按墨迹裁掉贴着顶边的一条，需要在 Chrome 里核对）。
@@ -701,7 +701,7 @@ LaTeX 编辑器切到实时预览：公式原地渲染，光标碰到时显示�
   标签的提示框写出每个键的作者、年份和标题。
 - **`\label`**（公式外）：淡色的键名标签。
 - 导言区、注释、verbatim（含 tcblisting、fancyvrb、filecontents）、行首 `\iffalse` 到 `\fi` 的块、定义（`\newcommand`
-  等，宏文件没有 `\begin{document}` 也不会被装饰）、`\footnote` 命令本身、TikZ 图和表格（P5）不装饰（定理框和图表环境
+  等，宏文件没有 `\begin{document}` 也不会被装饰）、`\footnote` 命令本身、TikZ 图（P5）和表格（#23）不装饰（定理框和图表环境
   见下文 P4）；
   根文档在 `\begin{document}` 之前 `\input` 的文件（`preambleFiles`：拆出去的 `setup.tex` 里的 `\hypersetup`、`\tcbset`、
   `\setlist`、`\title{$L^2$}`）整个没有构造，和 `.sty`/`.cls`/`.bib` 一样；带错误诊断的构造保留源码。
@@ -833,7 +833,7 @@ cleveref 的选项、`\crefname`/`\Crefname`、`\newtheorem`、`\<type>autorefna
 
 ## LaTeX 的 PDF 裁剪（P5，2026-09-29）
 
-MathJax 画不了的块（TikZ 图、表格、MathJax 拒绝的显示公式）和悬停时想看 PDF 原样的块（定理框、浮动体），从预览
+MathJax 画不了的块（TikZ 图、MathJax 拒绝的显示公式；表格由插件自己画，从不裁）和悬停时想看 PDF 原样的块（定理框、浮动体），从预览
 上一次编译的 PDF 里裁出来（design 4.6、4.8；`src/preview/blockCrop.ts`，不依赖 obsidian 模块，pdf.js 由 main.ts 传入）。
 共享核心同时同步到了 obsidian-tinymist 的新版本（新纪元时构造保留旧的渲染直到新的到来、`cursorPreview`），
 LaTeX 这边的调用不用改。
@@ -852,7 +852,7 @@ LaTeX 这边的调用不用改。
     用 PDF 变换移动了内容，SyncTeX 看不到）。所以框只取 `\end` 行，框里的东西不单独裁（latexLive 的 `cropKindOf`）。
     design 为框定的“上 18 pt、下 6 pt”的边距不再需要。
   - tikz-cd 的单元格记录在 TeX 放它们的位置，不在 pgf 画的位置（显示公式里差 (−35, +20) pt），`\end{tikzcd}` 行报告的
-    图片框才包住墨迹。图和表取里面的记录，加上 `\end` 行里包住它们的框，但不取段落行（段落中间的 tikz-cd 的 `\end`
+    图片框才包住墨迹。图取里面的记录，加上 `\end` 行里包住它们的框，但不取段落行（段落中间的 tikz-cd 的 `\end`
     行也报整行，连两边的文字）。
   - 分页时输出例程在读块的时候把上一页送出，那一页的许多盒子都带着块的行号（多行公式正好在分页处时，区域盖满整页）：
     正文里的块（公式、定理类）只取前一行下面的记录；第一页只剩不到 12 pt 的一条时从下一页开始。
@@ -869,12 +869,11 @@ LaTeX 这边的调用不用改。
 - **外观**：白底纸卡片（`lsp-lp-paper`），深色主题下按预览的 “Invert preview colors” 反色（`is-inverted`，是请求的一部分，
   换主题或改设置时视图重建）；窄窗格里等比缩小。
 - **实时预览**：#14 TikZ 图（tikzpicture、tikzcd、pgfpicture、circuitikz；扫描器现在把 `\begin`/`\end` 各自独占一行的
-  TikZ 图也报成 `env`，里面仍然不扫描）和表格（tabular、tabular*、tabularx、longtable）；#4 MathJax 拒绝的、独占整行的
+  TikZ 图也报成 `env`，里面仍然不扫描；表格是 #23 画的表，不裁）；#4 MathJax 拒绝的、独占整行的
   显示公式。新鲜时是块部件，光标在它的行上时显示源码，下面没有预览（那是旧的）。新结果到来时视图重建，新的裁剪画好之前
-  还显示上一次的（`locate` 返回这个块上一次画出来的请求，语言层自己保留）。改过或裁不出来时：#14 是源码（表格里的公式照常
-  渲染），#4 是 MathJax 的报错。编译结束（结果或失败）、预览关闭、换主题或改反色设置时通知渲染器重建。
-- **悬停链**：`TexRender.hoverTarget` 取指针所在的公式，否则取包住它的最内层能裁的块（TikZ 图、表格、定理类、figure 和
-  table 浮动体；tcolorbox 里的图算作整个框）。独占整行的显示公式：新鲜的裁剪 → MathJax（编译中不等）；行内公式只用
+  还显示上一次的（`locate` 返回这个块上一次画出来的请求，语言层自己保留）。改过或裁不出来时：#14 是源码，#4 是 MathJax 的报错。编译结束（结果或失败）、预览关闭、换主题或改反色设置时通知渲染器重建。
+- **悬停链**：`TexRender.hoverTarget` 取指针所在的公式，否则取包住它的最内层能裁的块（TikZ 图、定理类、figure 和
+  table 浮动体，表格本身不算；tcolorbox 里的图算作整个框）。独占整行的显示公式：新鲜的裁剪 → MathJax（编译中不等）；行内公式只用
   MathJax；块：新鲜的裁剪（会话第一次编译时等它结束）→ 改过时显示 “Changed since the last compile.”；没有预览或还没编译时没有这一段
   （只有 texlab 的悬停）。P6 在裁剪和提示之间加了片段编译（见下一节）。
 
@@ -911,14 +910,14 @@ LaTeX 这边的调用不用改。
 
 ### 位置记录：裁剪的第一来源（2026-10-22）
 
-SyncTeX 在 beamer 里把一帧当成一整页（帧体是宏参数，记录都带 `\end{frame}` 的行号），所以 beamer 的图和表原先不裁。
-现在每次编译都让 TeX 自己记下最外层的 TikZ 图和表格落在哪里（`src/tex/llpos.ts`），裁剪先用这份记录，没有可用的
+SyncTeX 在 beamer 里把一帧当成一整页（帧体是宏参数，记录都带 `\end{frame}` 的行号），所以 beamer 的图原先不裁。
+现在每次编译都让 TeX 自己记下最外层的 TikZ 图落在哪里（`src/tex/llpos.ts`），裁剪先用这份记录，没有可用的
 记录才问 SyncTeX。可行性在 `~/Data/appdata/latex-live-pos-spike/REPORT.md`。
 
-- **记录器**：一段 TeX（`POS_RECORDER`，写到输出目录的 `latex-live-pos.tex`），给 tikzpicture、tikzcd、circuitikz、
-  tabular、tabular*、tabularx 挂 `env/…/after` 钩子：最外层、水平模式下用 `\lastbox` 取回刚排好的盒子，前面放一个
+- **记录器**：一段 TeX（`POS_RECORDER`，写到输出目录的 `latex-live-pos.tex`），给 tikzpicture、tikzcd、circuitikz
+  挂 `env/…/after` 钩子：最外层、水平模式下用 `\lastbox` 取回刚排好的盒子，前面放一个
   savepos 和一个延迟的 `\write`，盒子原样放回（页面不变）。送出页面时写一行 `\llpos{序号}{环境}{页}{x}{y}{宽}{高}{深}{文件}{行}`
-  到 `<job>.llpos`。pgfpicture 不挂（beamer 主题用它画装饰）。没有 LaTeX 2020-10 的钩子或 savepos 原语时什么都不做。
+  到 `<job>.llpos`。pgfpicture 不挂（beamer 主题用它画装饰）；表格不挂（表格由插件画，从不裁）。没有 LaTeX 2020-10 的钩子或 savepos 原语时什么都不做。
 - **注入**（用户的 .tex 不改）：
   - 不用格式的一遍（XeLaTeX、LuaLaTeX、格式还没好的 pdfLaTeX）：`-jobname=<job>` 加 `\input{记录器}\input{主文件}`；
     不写 `-jobname` 时作业名会变成记录器的名字。
@@ -934,7 +933,7 @@ SyncTeX 在 beamer 里把一帧当成一整页（帧体是宏参数，记录都�
   - 区域就是盒子，上下各留 2 pt（pgf 的笔画会超出包围盒一点），左右 1.5 pt，再裁到墨迹。
 - **退回 SyncTeX**：零尺寸记录、`overlay` 选项；在 `\resizebox`/`\scalebox`/`\rotatebox`/`\reflectbox`/`adjustbox` 里面
   （记录的是缩放前的盒子）；被 `\foreach` 重复；一帧里某页嵌入不了或有两种嵌法（同种类的 `\only` 二选一、`\foreach`、
-  宏里来的图）；`[fragile]` 帧（记录指向 `.vrb`）；longtable、pgfpicture（不记录）；一行上两条同种记录。
+  宏里来的图）；`[fragile]` 帧（记录指向 `.vrb`）；pgfpicture（不记录）；一行上两条同种记录。
 - beamer 里只有打开 **Crop tabular/TikZ in beamer** 时才请求裁剪（latexLive #22，默认关）；打开后上面的规则让图和表
   大多拿到紧的裁剪，退回 SyncTeX 的仍是整页式的区域。
 
