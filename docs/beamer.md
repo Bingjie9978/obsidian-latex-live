@@ -12,7 +12,7 @@ PDF 和导出仍按 TeX 处理。
 | `\begin{frame}[t]{标题}{副标题}` … `\end{frame}`（`\begin`、`\end` 各自独占一行） | 一张卡片。`\begin` 行是标题栏：标题（其中的公式照常渲染）和副标题，选项和其余标记隐藏；`\end{frame}` 行折叠。卡片内容照常编辑，里面可以有定理框 | 该行显示源码 |
 | `\frametitle{…}`、`\framesubtitle{…}` | 标题栏样式的一行，命令和花括号隐藏 | 显示源码 |
 | 卡片右上角的页码 | 这一帧在 PDF 里的页码，带 overlay 的帧显示 `a–b`。点击让已打开的 PDF 预览跳到第一页；没有打开预览时不做任何事 | — |
-| `\titlepage`（beamer 里的 `\maketitle` 同样）独占一行 | 居中的标题页卡片：导言区的 `\title`（大字）、`\subtitle`、`\author`、`\institute`、`\date`。卡片不可编辑，点击打开 `\title` 所在的行（可能在另一个文件） | 显示源码 |
+| `\titlepage`（beamer 里的 `\maketitle` 同样）独占一行 | 折叠成一行 `▸ Title page`（和 TikZ 折叠一样，点击把光标放进去）；标题页的样子看 PDF 预览 | 显示源码 |
 | `\pause`，以及 `\item`、`\only`、`\onslide`、`\uncover`、`\visible`、`\alt` 的 `<…>` | 隐藏；`\only<2>{文字}` 只藏 `\only<2>{` 和 `}`，参数照常显示 | 显示源码 |
 | `columns`、`column` 环境 | 外壳：`\begin`/`\end` 行折叠，各列上下排列（不并排） | 显示源码 |
 | 字体大小命令（`\small`、`\Large` 等） | 隐藏 | 显示源码 |

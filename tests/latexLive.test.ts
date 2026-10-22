@@ -1442,7 +1442,7 @@ test("#23 a wrapper's \\begin line collapses with the layout commands after it, 
 
 // ---- Beamer (#17-#22, docs/beamer.md) ------------------------------------------------------
 
-test("beamer: frame cards with their title bar and page, banners, the title page, overlays, the TikZ fold; papers keep crops", async () => {
+test("beamer: frame cards with their title bar and page, banners, the title-page and TikZ folds, overlays; papers keep crops", async () => {
   const p = await project();
   try {
     const rules = mergeEnvRules(
@@ -1456,7 +1456,6 @@ test("beamer: frame cards with their title bar and page, banners, the title page
       ]),
     );
     const shownPages: number[] = [];
-    let opened = 0;
     const doc = [
       "\\begin{frame}[t]{Title $x$}", // 1
       "\\DeckGap", // 2
@@ -1492,8 +1491,6 @@ test("beamer: frame cards with their title bar and page, banners, the title page
                 refs: () => p.render.refsOf(p.root),
                 framePage: (d, pos) => (d.lineAt(pos).number === 1 ? { first: 2, last: 3 } : { first: 4, last: 4 }),
                 showPage: (page) => shownPages.push(page),
-                titlePage: () => ({ title: "Big", subtitle: "", author: "A\nB", institute: "Uni", date: "2026" }),
-                openTitle: () => opened++,
                 beamerCrops: () => beamerCrops,
                 crop: () => null,
               }),
@@ -1516,10 +1513,7 @@ test("beamer: frame cards with their title bar and page, banners, the title page
     assert.deepEqual(pages.map((e) => e.textContent), ["2–3", "4"], "the frame's pages and the banner's");
     pages[0].dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
     assert.deepEqual(shownPages, [2], "a click shows the first page");
-    const tp = view.contentDOM.querySelector<HTMLElement>(".ll-titlepage");
-    assert.equal(tp?.querySelector(".ll-titlepage-title")?.textContent, "Big");
-    tp!.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
-    assert.equal(opened, 1, "a click opens \\title");
+    assert.equal(view.contentDOM.querySelector(".ll-titlepage")?.textContent, "▸ Title page", "\\titlepage folds to one line");
     assert.equal(view.contentDOM.querySelector(".ll-tikz-fold")?.textContent, "▸ TikZ (3 lines)");
     const text = view.contentDOM.textContent ?? "";
     assert.ok(!text.includes("<2->") && !text.includes("\\DeckGap") && !text.includes("\\end{frame}"), text);
@@ -1538,6 +1532,11 @@ test("beamer: frame cards with their title bar and page, banners, the title page
     await rendered(view);
     assert.equal(view.contentDOM.querySelector(".ll-tikz-fold"), null);
     assert.ok((view.contentDOM.textContent ?? "").includes("\\draw (0,0)"));
+    // The cursor on \titlepage: its source.
+    cursorAt(view, view.state.doc.line(3).from + 2);
+    await rendered(view);
+    assert.equal(view.contentDOM.querySelector(".ll-titlepage"), null);
+    assert.ok((view.contentDOM.textContent ?? "").includes("\\titlepage"));
     view.destroy();
     // The setting on: the picture is a crop request, as in a paper (no crop here: its source); the table is drawn either way.
     const cropped = make(true);

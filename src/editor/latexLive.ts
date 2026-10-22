@@ -89,9 +89,8 @@ import { LiveContext, LiveLanguage, RenderWidget, TextWidget, renderConstruct } 
 //       the cursor is on it; the body is text.
 //   #19 a banner command's call (a \newcommand whose body is a frame: \sectionframe): a banner
 //       card, its arguments in place and the markup between them hidden; its page as #18.
-//   #20 \titlepage (\maketitle) alone on its line: a card of the preamble's \title, \subtitle,
-//       \author, \institute and \date (env.titlePage); a click opens the \title line
-//       (env.openTitle). Source while the cursor is on its line.
+//   #20 \titlepage (\maketitle) alone on its line: one line `▸ Title page`, as #22 folds a
+//       picture; source while the cursor is on its line (a click on the line puts it there).
 //   #21 overlays: the `<..>` of \item and \only, \onslide, \uncover, \visible, \alt hides with
 //       their braces (the content stays); \pause is a hidden command (#15).
 //   #22 a TikZ picture is not cropped unless env.beamerCrops(): it folds to one line
@@ -147,21 +146,8 @@ export interface LatexLiveEnv {
   framePage?(doc: Text, pos: number): { first: number; last: number } | null;
   /** Beamer: show PDF page `page` in the root's open preview (nothing without one). */
   showPage?(page: number): void;
-  /** Beamer: the title page's fields from the preamble (#20), or null (it stays source). */
-  titlePage?(): TitlePage | null;
-  /** Beamer: open the \title line (#20). */
-  openTitle?(): void;
   /** Beamer: crop TikZ pictures as in a paper (the "Crop TikZ in beamer" setting). */
   beamerCrops?(): boolean;
-}
-
-/** A beamer title page's fields as text (`\\` a line break); empty when the preamble has none. */
-export interface TitlePage {
-  readonly title: string;
-  readonly subtitle: string;
-  readonly author: string;
-  readonly institute: string;
-  readonly date: string;
 }
 
 /** LaTeX-only metadata for reference inspection; normal widget editing/drag events stay CM's. */
@@ -332,7 +318,7 @@ export function latexLiveLanguage(env: LatexLiveEnv): LiveLanguage<LatexConstruc
         return;
       }
       if (c.kind === "titlepage") {
-        decorateTitlePage(c, ctx, env);
+        decorateTitlePage(c, ctx);
         return;
       }
       if (c.kind === "env") {
@@ -654,29 +640,12 @@ function decorateBanner(c: LatexBanner, ctx: LiveContext, env: LatexLiveEnv): vo
   pageCorner(ctx, env, c.from, last.to);
 }
 
-/** \titlepage alone on its line (#20): the title page's card, a click opening the \title line. */
-function decorateTitlePage(c: LatexTitlePage, ctx: LiveContext, env: LatexLiveEnv): void {
-  const page = c.block ? env.titlePage?.() : null;
-  if (!page) return;
-  const { doc } = ctx.state;
-  const line = doc.lineAt(c.from);
+/** \titlepage alone on its line (#20): one line until the cursor is on it. */
+function decorateTitlePage(c: LatexTitlePage, ctx: LiveContext): void {
+  if (!c.block) return;
+  const line = ctx.state.doc.lineAt(c.from);
   if (ctx.touchLines(line.from, line.to) || ctx.hasError(line.from, line.to)) return;
-  const draw = (dom: HTMLElement) => {
-    const part = (text: string, cls: string) => {
-      if (!text) return;
-      const el = dom.ownerDocument.createElement("div");
-      el.className = cls;
-      el.textContent = text;
-      dom.appendChild(el);
-    };
-    part(page.title, "ll-titlepage-title");
-    part(page.subtitle, "ll-titlepage-subtitle");
-    part(page.author, "ll-titlepage-author");
-    part(page.institute, "ll-titlepage-institute");
-    part(page.date, "ll-titlepage-date");
-  };
-  const key = JSON.stringify(page);
-  const widget = new ActionWidget(key, draw, env.openTitle, true, "ll-titlepage", "Open \\title");
+  const widget = new TextWidget("▸ Title page", "ll-titlepage", line.text.trim());
   ctx.replace(line.from, line.to, Decoration.replace({ widget, block: true }));
 }
 
