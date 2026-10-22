@@ -8,8 +8,9 @@
 //   Detection a \newenvironment / \NewDocumentEnvironment whose begin code is exactly
 //             `\begin{E}` and end code `\end{E}` for a built-in formula environment E is an
 //             alias of E; one whose code is only wrapper environments and layout commands is a
-//             wrapper; a \newcommand whose body is only layout commands is hidden. Anything
-//             else is not guessed.
+//             wrapper; a \newcommand whose body is only layout commands and uses every
+//             argument is hidden, unless the sources assign the name while typesetting
+//             (runtimeAssigned). Anything else is not guessed.
 
 /** How many arguments a hidden command takes: `optional` when the first is `[..]`. */
 export interface Arity {
@@ -238,6 +239,7 @@ export function detectEnvRules(sources: readonly string[]): DetectedRules {
   const math = new Map<string, string>();
   const wrappers = new Set<string>();
   const hidden = new Map<string, Arity>();
+  const commands = new Map<string, { arity: Arity; body: string }>();
   const layoutWrappers = DEFAULT_RULES.wrappers;
   const layoutHidden = DEFAULT_RULES.hidden;
   const forget = (name: string) => {
@@ -291,10 +293,80 @@ export function detectEnvRules(sources: readonly string[]): DetectedRules {
       const body = s[i] === "{" ? group(s, i) : null;
       if (!body) continue;
       hidden.delete(name);
-      if (onlyLayout(body.text, layoutWrappers, layoutHidden)) hidden.set(name, { args, optional });
+      commands.set(name, { arity: { args, optional }, body: body.text });
+      // An argument the body never uses is typed text that would vanish with the command.
+      const usesAll = Array.from({ length: args }, (_, k) => new RegExp(`#${k + 1}(?!\\d)`)).every((re) => re.test(body.text));
+      if (usesAll && onlyLayout(body.text, layoutWrappers, layoutHidden)) hidden.set(name, { args, optional });
     }
   }
+  for (const name of runtimeAssigned(sources, commands)) hidden.delete(name);
   return { math, wrappers, hidden };
+}
+
+/** Primitives and etoolbox/LaTeX helpers that change the macro named right after them. */
+const ASSIGN = String.raw`\\(?:g@addto@macro|addto@macro|appto|gappto|eappto|xappto|def|gdef|edef|xdef|let)(?![A-Za-z@])`;
+const ASSIGN_NAME = new RegExp(String.raw`${ASSIGN}\s*\\([A-Za-z@]+)`, "g");
+const ASSIGN_ARG = new RegExp(String.raw`${ASSIGN}(?:\s*\\expandafter)*\s*#(\d)`, "g");
+
+/** The arguments of a call from s[i] (just after the command name), by position; a missing optional one is "". */
+function callArgs(s: string, i: number, arity: Arity): string[] | null {
+  const out: string[] = [];
+  let k = skipSpace(s, i);
+  if (arity.optional) {
+    const g = s[k] === "[" ? group(s, k) : null;
+    out.push(g?.text ?? "");
+    if (g) k = skipSpace(s, g.end);
+  }
+  while (out.length < arity.args) {
+    const g = s[k] === "{" ? group(s, k) : null;
+    if (!g) return null;
+    out.push(g.text);
+    k = skipSpace(s, g.end);
+  }
+  return out;
+}
+
+/**
+ * Names the sources change while the document typesets: `\g@addto@macro\x`, `\def\x`, `\let\x`,
+ * … anywhere, and a name passed to a macro that assigns its `#k` (`\collect{\educationContent}`),
+ * also through macros that pass their own `#j` on (`\researchEntry` -> `\@experienceEntry` ->
+ * `\collect`). What such a macro's definition says empty is not what prints.
+ */
+function runtimeAssigned(sources: readonly string[], commands: ReadonlyMap<string, { arity: Arity; body: string }>): Set<string> {
+  const assigned = new Set<string>();
+  for (const s of sources) for (const m of s.matchAll(ASSIGN_NAME)) assigned.add(m[1]);
+  // Macro -> the argument positions it assigns, directly or through another such macro.
+  const assigns = new Map<string, Set<number>>();
+  for (const [name, d] of commands) {
+    const ks = [...d.body.matchAll(ASSIGN_ARG)].map((m) => Number(m[1]));
+    if (ks.length) assigns.set(name, new Set(ks));
+  }
+  const passed = (src: string, onArg: (arg: string) => void) => {
+    for (const [name, ks] of assigns) {
+      const arity = commands.get(name)!.arity;
+      for (const m of src.matchAll(new RegExp(String.raw`\\${name}(?![A-Za-z@])`, "g"))) {
+        const args = callArgs(src, (m.index ?? 0) + m[0].length, arity);
+        for (const k of ks) onArg((args?.[k - 1] ?? "").replace(/\\noexpand\s*/g, "").trim());
+      }
+    }
+  };
+  for (let changed = true; changed; ) {
+    changed = false;
+    for (const [name, d] of commands) passed(d.body, (arg) => {
+      const j = /^#(\d)$/.exec(arg);
+      if (!j) return;
+      const ks = assigns.get(name) ?? new Set<number>();
+      if (ks.has(Number(j[1]))) return;
+      ks.add(Number(j[1]));
+      assigns.set(name, ks);
+      changed = true;
+    });
+  }
+  for (const s of sources) passed(s, (arg) => {
+    const a = /^\\([A-Za-z@]+)$/.exec(arg);
+    if (a) assigned.add(a[1]);
+  });
+  return assigned;
 }
 
 /** A key that is equal exactly when two rule sets are. */
