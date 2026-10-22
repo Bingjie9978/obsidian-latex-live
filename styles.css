@@ -783,6 +783,13 @@ SOFTWARE.
 .ll-editor-content .ll-table td.is-r {
   text-align: right;
 }
+/* A \multirow over its rows: centred unless `[t]`. */
+.ll-editor-content .ll-table td.v-c {
+  vertical-align: middle;
+}
+.ll-editor-content .ll-table td.v-b {
+  vertical-align: bottom;
+}
 /* Paragraph columns (p, m, b, X) wrap. */
 .ll-editor-content .ll-table td.is-p {
   min-width: 8em;

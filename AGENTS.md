@@ -363,11 +363,14 @@
     cannot match it); changed, without a preview or failing (quietly) it is source (#4: MathJax's
     error). Tables are drawn (#23), never cropped.
   - tables (#23, `src/editor/latexTable.ts`, pure; `tests/latexTable.test.ts`): `tabular`,
-    `tabular*` and `tabularx` (not longtable or array) whose `\begin` line may go on with
+    `tabular*`, `tabularx` and `longtable` (not array) whose `\begin` line may go on with
     `\toprule`/`\hline` and whose `\end` line with further `\end`s (latexScan's `tableAlone`).
     `parseTabular` reuses the export's column specs (`tables.ts`) and splits rows and cells at the
-    body's own `\\` and `&`; it gives up (null: source) on unbalanced braces or `$`, a tabular
-    inside, an open inner environment. `cellParts` turns a cell's constructs into parts (math,
+    body's own `\\` and `&` (longtable's `\endfirsthead`/`\endhead`/`\endfoot`/`\endlastfoot` too:
+    first head or head once, body, last foot or foot; `\kill` rows dropped, a `\caption` row spans);
+    `\multirow` gets a rowSpan (negative: upward) and takes the empty cells it covers (`grid`). It
+    gives up (null: source) on unbalanced braces or `$`, a tabular inside, an open inner
+    environment, or rows that do not fit the columns (no fallback column). `cellParts` turns a cell's constructs into parts (math,
     styles, chips; hidden commands omitted; anything else its source) and the gaps into text
     (`cellText`: unknown commands as written). latexLive sends the spec as JSON in a `table` block
     request (`below: false`), TexRender's `renderLive` builds it with `tableNode` through the

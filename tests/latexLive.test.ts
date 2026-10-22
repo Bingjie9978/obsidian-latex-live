@@ -1348,6 +1348,33 @@ test("#23 a tabular is a table: rules, spans, formulas, styles and chips in its 
   }
 });
 
+test("#23 a longtable is a table with its head once; a \\multirow spans its rows", async () => {
+  const p = await project();
+  try {
+    const doc = [
+      "\\begin{longtable}{lll}\\toprule", // 1
+      "A & B & C \\\\ \\midrule",
+      "\\endfirsthead",
+      "A & B & C (cont.) \\\\ \\midrule",
+      "\\endhead", // 5
+      "\\multirow{2}{*}{$g$} & x & 1 \\\\",
+      " & y & 2 \\\\ \\bottomrule",
+      "\\end{longtable}",
+      "end", // 9
+    ].join("\n");
+    const view = await p.mount(doc);
+    await waitFor(() => !!view.contentDOM.querySelector(".lsp-lp-table"));
+    await rendered(view);
+    assert.deepEqual(tableCells(view), [["A", "B", "C"], ["𝑔", "x", "1"], ["y", "2"]]);
+    const g = view.contentDOM.querySelectorAll(".lsp-lp-table td")[3] as HTMLTableCellElement;
+    assert.equal(g.rowSpan, 2);
+    assert.ok(g.classList.contains("v-c") && g.classList.contains("bottom-heavy"));
+    view.destroy();
+  } finally {
+    p.done();
+  }
+});
+
 test("#23 a wrapper's \\begin line collapses with the layout commands after it, on its line or the next, around a table", async () => {
   const p = await project();
   try {

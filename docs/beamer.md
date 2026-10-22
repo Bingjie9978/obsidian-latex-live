@@ -19,7 +19,7 @@ PDF 和导出仍按 TeX 处理。
 | 横幅宏的调用，例如 `\sectionframe{Part}{标题}{说明}` | 一张居中的横幅卡片，各参数分行显示，参数可以直接编辑；右上角是页码 | 显示源码 |
 | 图片宏的调用，例如 `\DeckFigure[height=3cm]{figures/a.pdf}`，独占一行 | 显示图片（同 `\includegraphics`） | 显示源码，图片在下方 |
 | `tikzpicture`（以及 `tikzcd`、`pgfpicture`、`circuitikz`） | 折叠成一行「▸ TikZ (N lines)」。点击或光标进入时展开成源码 | 显示源码 |
-| `tabular`、`tabular*`、`tabularx`（`\begin` 独占一行，可接 `\toprule`/`\hline`；`\end` 行可接其他 `\end`） | 简单表格：列对齐，`\hline`、booktabs 线和 `\cline`/`\cmidrule` 画成横线，`\|` 画成竖线，`\multicolumn` 跨列，`\multirow` 只显示内容。格子里的公式、`\textbf` 等样式和引用照常渲染，不认识的命令照原样显示，公式渲染失败的格子显示源码。解析不了（括号不配对、表里套表等）时显示源码。`longtable` 和 `array` 不处理 | 显示源码 |
+| `tabular`、`tabular*`、`tabularx`、`longtable`（`\begin` 独占一行，可接 `\toprule`/`\hline`；`\end` 行可接其他 `\end`） | 简单表格：列对齐，`\hline`、booktabs 线和 `\cline`/`\cmidrule` 画成横线，`\|` 画成竖线，`\multicolumn` 跨列，`\multirow` 跨行（负数向上，盖住的格子要空）。longtable 的表头只显示一次（有 `\endfirsthead` 时用它），表尾放在最后（有 `\endlastfoot` 时用它），`\kill` 行不显示。格子里的公式、`\textbf` 等样式和引用照常渲染，不认识的命令照原样显示，公式渲染失败的格子显示源码。解析不了（括号不配对、表里套表、某行格子比列多、`\multirow` 盖住有内容的格子等）时整张表显示源码。`array` 不处理 | 显示源码 |
 
 **居中**（论文也生效）：`\centering` 之后到所在分组结束的行，和 `center` 环境里的行，按行居中显示，
 内容仍是可编辑的文字。
