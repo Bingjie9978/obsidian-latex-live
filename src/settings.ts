@@ -149,7 +149,7 @@ export class LatexLiveSettingTab extends PluginSettingTab {
     }
     new Setting(containerEl)
       .setName("Crop tabular/TikZ in beamer")
-      .setDesc("Show tables and TikZ pictures of beamer slides as crops of the PDF. SyncTeX locates a beamer frame only as a whole page, so the crops are often wrong; off, a table stays source and a TikZ picture folds to one line until the cursor enters it.")
+      .setDesc("Show tables and TikZ pictures of beamer slides as crops of the PDF, at the positions each compile records. Where no record fits (overlay pictures, scaled boxes, \\foreach, fragile frames), SyncTeX locates only the whole page, so those crops can be loose; off, a table stays source and a TikZ picture folds to one line until the cursor enters it.")
       .addToggle((t) =>
         t.setValue(s.beamerCrops).onChange((v) => {
           s.beamerCrops = v;
