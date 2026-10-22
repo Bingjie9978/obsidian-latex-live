@@ -96,6 +96,42 @@ test("detection: math shells, layout-only wrappers and commands; everything else
   assert.equal(later.hidden.has("gap"), false, "a later definition wins");
 });
 
+test("detection: a register filled while typesetting stays source, also when its name reaches the assignment as an argument", () => {
+  // cv_WIAS's pattern: empty \*Content macros that \collect fills, some through \researchEntry.
+  const d = detectEnvRules([
+    [
+      "\\newcommand{\\collect}[2]{\\expandafter\\g@addto@macro\\expandafter#1\\expandafter{#2}}",
+      "\\newcommand{\\@entry}[2]{\\collect{#1}{\\item #2}}",
+      "\\newcommand{\\researchEntry}[1]{\\@entry{\\researchContent}{#1}}",
+      "\\newcommand{\\educationEntry}[1]{\\collect{\\educationContent}{#1\\gap}}",
+      "\\newcommand{\\pubEntry}[1]{\\noexpand\\collect{\\noexpand\\pubsContent}{#1}}",
+      "\\newcommand{\\educationContent}{}",
+      "\\newcommand{\\researchContent}{}",
+      "\\newcommand{\\pubsContent}{}",
+      "\\newcommand{\\awardsContent}{}",
+      "\\newcommand{\\flag}{\\relax}",
+      "\\newcommand{\\gap}{\\vspace{2mm}}",
+      "\\newcommand{\\blank}{}",
+    ].join("\n"),
+    "\\appto\\awardsContent{Prize}\\let\\flag\\relax\\researchEntry{Postdoc}",
+  ]);
+  for (const name of ["educationContent", "researchContent", "pubsContent", "awardsContent", "flag"]) assert.equal(d.hidden.has(name), false, name);
+  assert.ok(d.hidden.has("gap"), "passed as the collected content, not as the register");
+  assert.ok(d.hidden.has("blank"), "never assigned");
+});
+
+test("detection: a command that discards an argument stays source", () => {
+  const d = detectEnvRules([
+    [
+      "\\newcommand\\emptyarg[1]{}",
+      "\\newcommand\\half[2]{\\hspace{#1}}",
+      "\\newcommand\\opt[1][]{}",
+      "\\newcommand\\push[2]{\\hspace{#1}\\vspace{#2}}",
+    ].join("\n"),
+  ]);
+  assert.deepEqual([...d.hidden], [["push", { args: 2, optional: false }]]);
+});
+
 test("settings JSON: literal names, known alias targets, a wrapper is no alias; invalid JSON throws", () => {
   assert.deepEqual(parseRulesJson("formulas", '{ "myeq": "equation" }'), { myeq: "equation" });
   assert.deepEqual(parseRulesJson("hidden", '["centering", "DeckLayout"]'), ["centering", "DeckLayout"]);
@@ -108,7 +144,7 @@ test("settings JSON: literal names, known alias targets, a wrapper is no alias; 
   assert.throws(() => parseUserRules({ formulas: { myeq: "equation" }, wrappers: ["myeq"] }), /both a formula alias and a wrapper/);
 });
 
-test("Mod-click target: the \\label outside comments", () => {
+test("jump target of a reference: the \\label outside comments", () => {
   const d = doc("% \\label{a}\ntext\n\\label{a} \\label{b}");
   assert.equal(labelIn(d, "a"), "% \\label{a}\ntext\n".length);
   assert.equal(labelIn(d, "c"), null);

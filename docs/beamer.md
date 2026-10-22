@@ -46,6 +46,9 @@ PDF 和导出仍按 TeX 处理。
    - `\csname P#1\endcsname`，且项目里所有名字以 `P` 开头的宏都已识别为排版宏；
    - 已识别的排版宏，以及只起分组作用的花括号。
 
+   宏体有没用到的参数（`\newcommand\x[1]{}`），或源文件在排版时给这个名字赋值（`\g@addto@macro`、`\appto`、
+   `\def`、`\let` 等，也包括名字作为参数传给做赋值的宏）时，不算排版宏，保持源码。
+
    识别反复进行到没有新结果为止，所以排版宏可以调用别的排版宏。例如
    `\newcommand{\DeckLayout}[1]{\DeckNormal\csname DeckFamily@#1\endcsname\DeckMathSpacing}`：
    `\DeckFamily@…` 都只有 `\setlength` 或 `\renewcommand{\arraystretch}{…}`，`\DeckNormal`、
