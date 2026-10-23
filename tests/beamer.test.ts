@@ -2,7 +2,7 @@
 // frames counted per file in reading order, the .nav's pages (src/tex/beamer.ts).
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { deckFrames, navPages } from "../src/tex/beamer";
 import { detectEnvRules, frameStarts, mergeEnvRules, EMPTY_USER_RULES } from "../src/tex/envRules";
 
@@ -66,7 +66,7 @@ test("deck: the .nav's pages, the frames per file in reading order", () => {
     { first: 1, last: 1 },
     { first: 2, last: 4 },
   ]);
-  const dir = "/deck";
+  const dir = resolve("/deck");
   const files: Record<string, string> = {
     [join(dir, "main.tex")]: [
       "\\documentclass{beamer}",
